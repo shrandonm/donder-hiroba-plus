@@ -34,7 +34,8 @@ export function updateScoreDataSorted (storage: RecentScoreStorage): {
     }
   }
 
-  scoreDataSorted.sort((a, b) => b.score.count.play - a.score.count.play)
+  //scoreDataSorted.sort((a, b) => b.score.count.play - a.score.count.play)
+  scoreDataSorted.sort((a, b) => b.score.score - a.score.score)
   const totalPlayCount = `${totalPlay} / ${totalClear} / ${totalFullcombo} / ${totalDonderfullcombo}`
 
   return { scoreDataSorted, totalPlayCount }
