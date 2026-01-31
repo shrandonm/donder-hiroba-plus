@@ -20,6 +20,7 @@
   let playlistSongSet: Set<string> = new Set()
   let selectedPlaylistId = 'all'
   let unsubscribePlaylists: (() => void) | null = null
+  let filterQuery = ''
   let playlistMenu:
   | { songNo: string; title: string; difficulty: Difficulty; x: number; y: number }
   | null = null
@@ -112,6 +113,90 @@
       case 'maxbpm': return analyzer?.getSongMaxBpm(s.songNo) ?? 0
     }
   }
+
+  function getNumericField(s: SortedScoreData, field: string): number {
+    switch (field) {
+      case 'level': return getLevelValue(s)
+      case 'score': return s.score.score
+      case 'good%':
+      case 'goodpercent':
+      case 'goodpct':
+      case 'goodp':
+        return getGoodPercent(s) * 100
+      case 'good': return s.score.good
+      case 'ok': return s.score.ok
+      case 'bad': return s.score.bad
+      case 'roll': return s.score.roll
+      case 'play': return s.score.count.play
+      case 'clear': return s.score.count.clear
+      case 'fullcombo': return s.score.count.fullcombo
+      case 'donderfullcombo': return s.score.count.donderfullcombo
+      case 'notes': return getTotalNotes(s)
+      case 'songduration': return analyzer?.getSongDuration(s.songNo, getDifficultyType(s.difficulty)) ?? 0
+      case 'maxbpm': return analyzer?.getSongMaxBpm(s.songNo) ?? 0
+      default: return 0
+    }
+  }
+
+  function matchFilterToken(s: SortedScoreData, token: string): boolean {
+    const m = token.match(/^([a-z%]+)\s*(>=|<=|=|>|<|:)\s*(.+)$/i)
+    if (!m) {
+      return s.songName.toLowerCase().includes(token.toLowerCase())
+    }
+
+    const field = m[1].toLowerCase()
+    const op = m[2]
+    const rawValue = m[3]
+
+    if (field === 'name') {
+      const name = s.songName.toLowerCase()
+      const val = rawValue.toLowerCase()
+      return op === '=' ? name === val : name.includes(val)
+    }
+
+    if (field === 'badge') {
+      const val = rawValue.toLowerCase()
+      const badgeMap: Record<string, number> = {
+        rainbow: 8,
+        purple: 7,
+        pink: 6,
+        gold: 5,
+        silver: 4,
+        bronze: 3,
+        white: 2,
+        none: 1,
+        null: 1
+      }
+      const desired = Number.isFinite(Number.parseFloat(val))
+        ? Number.parseFloat(val)
+        : badgeMap[val]
+      if (!Number.isFinite(desired)) return false
+      const actual = badgeToNumber(s.score.badge)
+      switch (op) {
+        case '>': return actual > desired
+        case '>=': return actual >= desired
+        case '<': return actual < desired
+        case '<=': return actual <= desired
+        case '=': return actual === desired
+        case ':': return actual === desired
+        default: return true
+      }
+    }
+
+    const numValue = Number.parseFloat(rawValue.replace('%', ''))
+    if (!Number.isFinite(numValue)) return false
+    const actual = getNumericField(s, field)
+
+    switch (op) {
+      case '>': return actual > numValue
+      case '>=': return actual >= numValue
+      case '<': return actual < numValue
+      case '<=': return actual <= numValue
+      case '=': return actual === numValue
+      case ':': return actual === numValue
+      default: return true
+    }
+  }
   
   function clamp(n: number, min: number, max: number) {
     return Math.max(min, Math.min(max, n))
@@ -167,7 +252,14 @@
     return trimmed % 1 === 0 ? String(Math.trunc(trimmed)) : trimmed.toFixed(1)
   }
 
-  $: displayedScores = [...(scoreDataSorted ?? [])].sort((a, b) => {
+  $: filteredScores = (scoreDataSorted ?? []).filter((s) => {
+    const q = filterQuery.trim()
+    if (!q) return true
+    const tokens = q.match(/"[^"]+"|\S+/g) ?? []
+    return tokens.every(t => matchFilterToken(s, t.replace(/^"|"$/g, '')))
+  })
+
+  $: displayedScores = [...filteredScores].sort((a, b) => {
     const av = getSortValue(a, sortKey)
     const bv = getSortValue(b, sortKey)
     const primary = cmp(av, bv)
@@ -229,6 +321,16 @@
           <option value={playlist.uuid}>{playlist.title}</option>
         {/each}
       </select>
+    </div>
+
+    <div class="filter-row">
+      <label for="score-filter-input">Filter:</label>
+      <input
+        id="score-filter-input"
+        type="text"
+        placeholder='name, level>=9, score>1000000, good%>=98'
+        bind:value={filterQuery}
+      />
     </div>
 
     <span>Total Song Count: {scoreDataSorted.length}</span>
@@ -439,6 +541,16 @@
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .filter-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .filter-row input {
+    min-width: 240px;
   }
 
   .total-item {
