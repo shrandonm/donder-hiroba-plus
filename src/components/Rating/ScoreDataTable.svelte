@@ -126,13 +126,22 @@
       case 'good': return s.score.good
       case 'ok': return s.score.ok
       case 'bad': return s.score.bad
+      case 'rolls':
+      case 'drumroll':
+      case 'drumrolls':
       case 'roll': return s.score.roll
       case 'play': return s.score.count.play
       case 'clear': return s.score.count.clear
+      case 'fc':
       case 'fullcombo': return s.score.count.fullcombo
+      case 'dfc':
       case 'donderfullcombo': return s.score.count.donderfullcombo
       case 'notes': return getTotalNotes(s)
+      case 'songlength':
+      case 'length':
+      case 'duration':
       case 'songduration': return analyzer?.getSongDuration(s.songNo, getDifficultyType(s.difficulty)) ?? 0
+      case 'bpm':
       case 'maxbpm': return analyzer?.getSongMaxBpm(s.songNo) ?? 0
       default: return 0
     }
@@ -590,7 +599,7 @@
   }
 
   .play-count-table tbody tr.in-playlist {
-    box-shadow: inset 0 0 0 2px #f5c542;
+    background-color: #3a3420;
   }
 
   /* name column: take remaining width + ellipsis */
