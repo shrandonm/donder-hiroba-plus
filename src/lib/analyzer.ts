@@ -100,31 +100,17 @@ export class Analyzer {
     return this.data?.[songNo]?.[diff] ?? 0
     }
     
-    getTotalNotes(songNo: string, diff: DifficultyType): number
+    getSongMinBpm(songNo: string): number
     {
-        return Analyzer.songDB?.getSongData(songNo)?.courses[diff]?.maxCombo ?? 0
+        return Analyzer.songDB?.getSongData(songNo)?.bpm?.min ?? 0
+    }
+    
+    getSongMaxBpm(songNo: string): number {
+        return Analyzer.songDB?.getSongData(songNo)?.bpm?.max ?? 0
     }
     
     getSongDuration(songNo: string, diff: DifficultyType): number
     {
         return Analyzer.songDB?.getSongData(songNo)?.courses[diff]?.playTime ?? 0
-    }
-    
-    getTotalRollTime(songNo: string, diff: DifficultyType): number {
-        let totalRollTime = 0
-        const rollTimes = Analyzer.songDB?.getSongData(songNo)?.courses[diff]?.rollTime ?? []
-        for (const rollTime of rollTimes) {
-            totalRollTime += rollTime
-        }
-        return totalRollTime
-    }
-    
-    getTotalBalloonTime(songNo: string, diff: DifficultyType): number {
-        let totalRollTime = 0
-        const rollTimes = Analyzer.songDB?.getSongData(songNo)?.courses[diff]?.balloon ?? []
-        for (const rollTime of rollTimes) {
-            totalRollTime += rollTime
-        }
-        return totalRollTime
     }
 }

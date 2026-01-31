@@ -59,9 +59,8 @@
     | 'clear'
     | 'fullcombo'
     | 'donderfullcombo'
-    | 'notes'
-    | 'rolltime'
-    | 'balloontime'
+    | 'songduration'
+    | 'maxbpm'
     
   let sortKey: SortKey = 'name'
   let sortDir: 'asc' | 'desc' = 'asc'
@@ -98,9 +97,8 @@
       case 'clear': return s.score.count.clear
       case 'fullcombo': return s.score.count.fullcombo
       case 'donderfullcombo': return s.score.count.donderfullcombo
-      case 'notes': return analyzer?.getTotalNotes(s.songNo, getDifficultyType(s.difficulty)) ?? 0
-      case 'rolltime': return analyzer?.getTotalRollTime(s.songNo, getDifficultyType(s.difficulty)) ?? 0
-      case 'balloontime': return analyzer?.getTotalBalloonTime(s.songNo, getDifficultyType(s.difficulty)) ?? 0
+      case 'songduration': return analyzer?.getSongDuration(s.songNo, getDifficultyType(s.difficulty)) ?? 0
+      case 'maxbpm': return analyzer?.getSongMaxBpm(s.songNo) ?? 0
     }
   }
   
@@ -108,11 +106,14 @@
     return Math.max(min, Math.min(max, n))
   }
   
+  function getTotalNotes(scoreData: SortedScoreData): number
+  {
+    return scoreData.score.good + scoreData.score.ok + scoreData.score.bad
+  }
+  
   function getGoodPercent(scoreData: SortedScoreData): number
   {
-    if (!analyzer)
-        return 0
-    var totalNotes = analyzer.getTotalNotes(scoreData.songNo, getDifficultyType(scoreData.difficulty));
+    var totalNotes = getTotalNotes(scoreData)
     return totalNotes > 0 ? scoreData.score.good / totalNotes : 0
   }
   
@@ -288,14 +289,11 @@
           </th>
           
           <!-- Song info -->
-          <th class="th-sort th-icon" on:click={() => toggleSort('notes')}>
-            Notes{sortIndicator('notes')}
+          <th class="th-sort th-icon" on:click={() => toggleSort('songduration')}>
+            Length{sortIndicator('songduration')}
           </th>
-          <th class="th-sort th-icon" on:click={() => toggleSort('rolltime')}>
-            Roll Time{sortIndicator('rolltime')}
-          </th>
-          <th class="th-sort th-icon" on:click={() => toggleSort('balloontime')}>
-            Balloon Hits{sortIndicator('balloontime')}
+          <th class="th-sort th-icon" on:click={() => toggleSort('maxbpm')}>
+            BPM{sortIndicator('maxbpm')}
           </th>
           <!-- End song info -->
         </tr>
@@ -338,7 +336,7 @@
               <img src={icons.badges[badgeToNumber(score.score.badge)]} alt="Score" title="Score" />
             </td>
             
-            <td>{getGoodPercent(score)}</td>
+            <td>{(getGoodPercent(score) * 100).toFixed(2)}%</td>
             <td>{score.score.good}</td>
             <td>{score.score.ok}</td>
             <td>{score.score.bad}</td>
@@ -349,9 +347,8 @@
             <td>{score.score.count.fullcombo}</td>
             <td>{score.score.count.donderfullcombo}</td>
             
-            <td>{analyzer?.getTotalNotes(score.songNo, getDifficultyType(score.difficulty)) ?? 0}</td>
-            <td>{analyzer?.getTotalRollTime(score.songNo, getDifficultyType(score.difficulty)) ?? 0}</td>
-            <td>{analyzer?.getTotalBalloonTime(score.songNo, getDifficultyType(score.difficulty)) ?? 0}</td>
+            <td>{analyzer?.getSongDuration(score.songNo, getDifficultyType(score.difficulty)) ?? 0}</td>
+            <td>{analyzer?.getSongMinBpm(score.songNo) ?? 0} - {analyzer?.getSongMaxBpm(score.songNo) ?? 0}</td>
           </tr>
         {/each}
       </tbody>
@@ -450,7 +447,6 @@
   .song-name {
     text-align: left;
     overflow: hidden;
-    max-width: 0; /* important in tables so it can shrink */
   }
 
   .song-name a {
