@@ -1,9 +1,9 @@
-import type { DifficultyScoreData } from '../ratingTypes'
+import type { Difficulty, DifficultyScoreData } from '../ratingTypes'
 import type RecentScoreStorage from '../recentScoreStorage'
 
 export interface SortedScoreData {
   songName: string
-  difficulty: string
+  difficulty: Difficulty
   score: DifficultyScoreData
   songNo: string
 }

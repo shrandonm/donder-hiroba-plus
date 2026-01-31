@@ -134,6 +134,27 @@
 </div>
 
 <style>
+    :global(html),
+    :global(body) {
+        overflow-y: scroll;
+        scrollbar-width: auto;
+        scrollbar-color: #888 #222;
+    }
+
+    :global(body::-webkit-scrollbar) {
+        width: 10px;
+    }
+
+    :global(body::-webkit-scrollbar-track) {
+        background: #222;
+    }
+
+    :global(body::-webkit-scrollbar-thumb) {
+        background: #888;
+        border-radius: 6px;
+        border: 2px solid #222;
+    }
+
     .container {
         width: 100%;
         display: flex;
