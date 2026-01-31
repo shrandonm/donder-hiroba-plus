@@ -2,7 +2,7 @@
   import type { SortedScoreData } from './services/ScoreDataService'
   import { icons } from '../../assets'
   import type { Badge, Difficulty } from './ratingTypes'
-  import type { DifficultyType } from '../../types'
+  import type { DifficultyType, Playlist } from '../../types'
   import { BADGES } from '../../constants';
   import { onDestroy, onMount } from 'svelte'
   import PlaylistContextMenu from '../Common/PlaylistContextMenu.svelte'
@@ -16,6 +16,10 @@
   let openPlayCount = true
   let playlists: PlaylistsStore | null = null
   let analyzer: Analyzer | null = null
+  let playlistItems: Playlist[] = []
+  let playlistSongSet: Set<string> = new Set()
+  let selectedPlaylistId = 'all'
+  let unsubscribePlaylists: (() => void) | null = null
   let playlistMenu:
   | { songNo: string; title: string; difficulty: Difficulty; x: number; y: number }
   | null = null
@@ -37,12 +41,19 @@
     document.body.addEventListener('contextmenu', handler)
     void (async () => {
       playlists = await PlaylistsStore.getInstance()
+      unsubscribePlaylists = playlists.subscribe((items) => {
+        playlistItems = items
+      })
       analyzer = await Analyzer.getInstance()
     })()
     return () => {
       document.body.removeEventListener('click', handler)
       document.body.removeEventListener('contextmenu', handler)
     }
+  })
+
+  onDestroy(() => {
+    unsubscribePlaylists?.()
   })
 
   type SortKey = 'name'
@@ -174,6 +185,12 @@
     return sortDir === 'asc' ? tie : -tie
   })
 
+  $: playlistSongSet = new Set(
+    selectedPlaylistId === 'all'
+      ? playlistItems.flatMap(p => p.songNoList)
+      : (playlistItems.find(p => p.uuid === selectedPlaylistId)?.songNoList ?? [])
+  )
+
   function sortIndicator(key: SortKey) {
     if (sortKey !== key) return ''
     return sortDir === 'asc' ? ' ▲' : ' ▼'
@@ -199,6 +216,21 @@
   </button>
 
   {#if openPlayCount}
+    <div class="playlist-highlight">
+      <label for="playlist-highlight-select">Highlight playlist:</label>
+      <select
+        id="playlist-highlight-select"
+        bind:value={selectedPlaylistId}
+        disabled={!playlistItems.length}
+      >
+        <option value="all">(all playlists)</option>
+        <option value="">(none)</option>
+        {#each playlistItems as playlist (playlist.uuid)}
+          <option value={playlist.uuid}>{playlist.title}</option>
+        {/each}
+      </select>
+    </div>
+
     <span>Total Song Count: {scoreDataSorted.length}</span>
 
     <div class="totals">
@@ -301,7 +333,7 @@
 
       <tbody>
         {#each displayedScores as score (score.songNo + ':' + score.difficulty)}
-          <tr>
+          <tr class:in-playlist={playlistSongSet.has(score.songNo)}>
             <td class="td-icon">
               {#if playlists}
                 <button class="playlist-btn" on:click={(e) => onClickPlaylist(e, score.songNo, score.songName, score.difficulty)}>
@@ -403,6 +435,12 @@
     max-width: 600px;
   }
 
+  .playlist-highlight {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   .total-item {
     display: inline-flex;
     gap: 6px;
@@ -437,6 +475,10 @@
 
   .play-count-table tbody tr:nth-child(even) {
     background-color: #242424;
+  }
+
+  .play-count-table tbody tr.in-playlist {
+    box-shadow: inset 0 0 0 2px #f5c542;
   }
 
   /* name column: take remaining width + ellipsis */
