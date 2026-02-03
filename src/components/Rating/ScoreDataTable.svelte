@@ -18,7 +18,9 @@
   let analyzer: Analyzer | null = null
   let playlistItems: Playlist[] = []
   let playlistSongSet: Set<string> = new Set()
+  let selectedPlaylistSongSet: Set<string> = new Set()
   let selectedPlaylistId = 'all'
+  let filterToPlaylistOnly = false
   let unsubscribePlaylists: (() => void) | null = null
   let filterQuery = ''
   let playlistMenu:
@@ -320,8 +322,12 @@
 
   $: filteredScores = (scoreDataSorted ?? []).filter((s) => {
     const q = normalizeFilterQuery(filterQuery).trim()
+    const shouldFilterToPlaylist = filterToPlaylistOnly
+      && selectedPlaylistId !== 'all'
+      && selectedPlaylistId !== ''
+    if (shouldFilterToPlaylist && !selectedPlaylistSongSet.has(s.songNo)) return false
     if (!q) return true
-    const tokens = q.match(/"[^"]+"|\S+/g) ?? []
+    const tokens: string[] = q.match(/"[^"]+"|\S+/g) ?? []
     return tokens.every(t => matchFilterToken(s, t.replace(/^"|"$/g, '')))
   })
 
@@ -347,6 +353,12 @@
     selectedPlaylistId === 'all'
       ? playlistItems.flatMap(p => p.songNoList)
       : (playlistItems.find(p => p.uuid === selectedPlaylistId)?.songNoList ?? [])
+  )
+
+  $: selectedPlaylistSongSet = new Set(
+    selectedPlaylistId !== 'all' && selectedPlaylistId !== ''
+      ? (playlistItems.find(p => p.uuid === selectedPlaylistId)?.songNoList ?? [])
+      : []
   )
 
   function sortIndicator(key: SortKey) {
@@ -387,6 +399,14 @@
           <option value={playlist.uuid}>{playlist.title}</option>
         {/each}
       </select>
+      <label class="playlist-filter-toggle">
+        <input
+          type="checkbox"
+          bind:checked={filterToPlaylistOnly}
+          disabled={!playlistItems.length}
+        />
+        Only show songs in playlist
+      </label>
     </div>
 
     <div class="filter-row">
@@ -607,6 +627,13 @@
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .playlist-filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
   }
 
   .filter-row {
