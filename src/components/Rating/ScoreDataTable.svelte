@@ -123,14 +123,19 @@
       case 'goodpct':
       case 'goodp':
         return getGoodPercent(s) * 100
-      case 'good': return s.score.good
-      case 'ok': return s.score.ok
-      case 'bad': return s.score.bad
+      case 'good':
+      case 'goods': return s.score.good
+      case 'ok':
+      case 'okays': return s.score.ok
+      case 'bad':
+      case 'bads': return s.score.bad
       case 'rolls':
       case 'drumroll':
       case 'drumrolls':
       case 'roll': return s.score.roll
+      case 'plays':
       case 'play': return s.score.count.play
+      case 'clears':
       case 'clear': return s.score.count.clear
       case 'fc':
       case 'fullcombo': return s.score.count.fullcombo
@@ -141,16 +146,56 @@
       case 'length':
       case 'duration':
       case 'songduration': return analyzer?.getSongDuration(s.songNo, getDifficultyType(s.difficulty)) ?? 0
+      case 'minbpm': return analyzer?.getSongMinBpm(s.songNo) ?? 0
       case 'bpm':
       case 'maxbpm': return analyzer?.getSongMaxBpm(s.songNo) ?? 0
       default: return 0
     }
   }
 
+  function getBadgeName(badge: Badge): string {
+    switch (badge) {
+      case 'rainbow': return 'rainbow'
+      case 'purple': return 'purple'
+      case 'pink': return 'pink'
+      case 'gold': return 'gold'
+      case 'silver': return 'silver'
+      case 'bronze': return 'bronze'
+      case 'white': return 'white'
+      case null: return 'none'
+    }
+  }
+
+  function getBpmRangeText(s: SortedScoreData): string {
+    const min = analyzer?.getSongMinBpm(s.songNo) ?? 0
+    const max = analyzer?.getSongMaxBpm(s.songNo) ?? 0
+    return `${min} - ${max}`
+  }
+
   function matchFilterToken(s: SortedScoreData, token: string): boolean {
     const m = token.match(/^([a-z%]+)\s*(>=|<=|=|>|<|:)\s*(.+)$/i)
     if (!m) {
-      return s.songName.toLowerCase().includes(token.toLowerCase())
+      const val = token.toLowerCase()
+      const fields = [
+        s.songName,
+        s.songNo,
+        s.difficulty,
+        formatLevel(getLevelValue(s)),
+        String(s.score.score),
+        getBadgeName(s.score.badge),
+        `${(getGoodPercent(s) * 100).toFixed(2)}%`,
+        String(s.score.good),
+        String(s.score.ok),
+        String(s.score.bad),
+        String(s.score.roll),
+        String(s.score.count.play),
+        String(s.score.count.clear),
+        String(s.score.count.fullcombo),
+        String(s.score.count.donderfullcombo),
+        String(analyzer?.getSongDuration(s.songNo, getDifficultyType(s.difficulty)) ?? 0),
+        getBpmRangeText(s)
+      ]
+      return fields.some((f) => f.toLowerCase().includes(val))
     }
 
     const field = m[1].toLowerCase()
@@ -161,6 +206,12 @@
       const name = s.songName.toLowerCase()
       const val = rawValue.toLowerCase()
       return op === '=' ? name === val : name.includes(val)
+    }
+
+    if (field === 'diff' || field === 'difficulty') {
+      const diff = s.difficulty.toLowerCase()
+      const val = rawValue.toLowerCase()
+      return op === '=' ? diff === val : diff.includes(val)
     }
 
     if (field === 'badge') {
@@ -261,8 +312,14 @@
     return trimmed % 1 === 0 ? String(Math.trunc(trimmed)) : trimmed.toFixed(1)
   }
 
+  function normalizeFilterQuery(q: string): string {
+    return q.replace(/([a-z%]+)\s*(>=|<=|=|>|<|:)\s*([^\s"]+)/gi, (_m, field, op, value) => {
+      return `${field}${op}${value}`
+    })
+  }
+
   $: filteredScores = (scoreDataSorted ?? []).filter((s) => {
-    const q = filterQuery.trim()
+    const q = normalizeFilterQuery(filterQuery).trim()
     if (!q) return true
     const tokens = q.match(/"[^"]+"|\S+/g) ?? []
     return tokens.every(t => matchFilterToken(s, t.replace(/^"|"$/g, '')))
