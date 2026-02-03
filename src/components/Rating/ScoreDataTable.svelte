@@ -3,7 +3,7 @@
   import { icons } from '../../assets'
   import type { Badge, Difficulty } from './ratingTypes'
   import type { DifficultyType, Playlist } from '../../types'
-  import { BADGES } from '../../constants';
+  import { BADGES, MAX_PLAYLIST_SONGS } from '../../constants';
   import { onDestroy, onMount } from 'svelte'
   import PlaylistContextMenu from '../Common/PlaylistContextMenu.svelte'
   import { PlaylistsStore } from '../../lib/playlist'
@@ -38,6 +38,32 @@
     if (target.songNoList.length === 0) return
     await playlists.set(
       playlistItems.map(p => p.uuid === target.uuid ? { ...p, songNoList: [] } : p)
+    )
+  }
+
+  async function addTop30ToPlaylist(): Promise<void> {
+    if (!playlists) return
+    if (selectedPlaylistId === 'all' || selectedPlaylistId === '') return
+    const target = playlistItems.find(p => p.uuid === selectedPlaylistId)
+    if (!target) return
+
+    const topSongNos = displayedScores
+      .slice(0, MAX_PLAYLIST_SONGS)
+      .map(s => s.songNo)
+
+    const existing = new Set(target.songNoList)
+    const toAdd = topSongNos.filter(no => !existing.has(no))
+    if (toAdd.length === 0) return
+
+    const remaining = MAX_PLAYLIST_SONGS - target.songNoList.length
+    if (remaining <= 0) {
+      alert(`Song list must be less than ${MAX_PLAYLIST_SONGS}`)
+      return
+    }
+
+    const newList = [...target.songNoList, ...toAdd.slice(0, remaining)]
+    await playlists.set(
+      playlistItems.map(p => p.uuid === target.uuid ? { ...p, songNoList: newList } : p)
     )
   }
 
@@ -373,6 +399,20 @@
       : []
   )
 
+  $: selectedPlaylist = selectedPlaylistId !== 'all' && selectedPlaylistId !== ''
+    ? (playlistItems.find(p => p.uuid === selectedPlaylistId) ?? null)
+    : null
+
+  $: selectedPlaylistSize = selectedPlaylist?.songNoList.length ?? 0
+  $: remainingPlaylistCapacity = MAX_PLAYLIST_SONGS - selectedPlaylistSize
+  $: top30CandidateSongNos = displayedScores.slice(0, MAX_PLAYLIST_SONGS).map(s => s.songNo)
+  $: top30AddableCount = selectedPlaylist
+    ? Math.min(
+      remainingPlaylistCapacity,
+      top30CandidateSongNos.filter(no => !selectedPlaylistSongSet.has(no)).length
+    )
+    : 0
+
   function sortIndicator(key: SortKey) {
     if (sortKey !== key) return ''
     return sortDir === 'asc' ? ' ▲' : ' ▼'
@@ -419,6 +459,14 @@
         />
         Only show songs in playlist
       </label>
+      <button
+        class="playlist-add-top-btn"
+        on:click={addTop30ToPlaylist}
+        disabled={!playlistItems.length || selectedPlaylistId === 'all' || selectedPlaylistId === '' || top30AddableCount === 0}
+        title="Add the top 30 visible songs to the selected playlist"
+      >
+        Add Top 30
+      </button>
       <button
         class="playlist-clear-btn"
         on:click={clearSelectedPlaylist}
@@ -648,6 +696,7 @@
     gap: 8px;
   }
 
+  .playlist-add-top-btn,
   .playlist-clear-btn {
     margin-left: 4px;
   }
