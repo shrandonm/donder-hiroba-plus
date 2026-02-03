@@ -28,7 +28,19 @@
   | null = null
 
   const closePlaylistMenu = () => (playlistMenu = null)
-  
+
+  async function clearSelectedPlaylist(): Promise<void> {
+    if (!playlists) return
+    if (selectedPlaylistId === 'all' || selectedPlaylistId === '') return
+    const target = playlistItems.find(p => p.uuid === selectedPlaylistId)
+    if (!target) return
+    if (!confirm(`Clear all songs from "${target.title}"?`)) return
+    if (target.songNoList.length === 0) return
+    await playlists.set(
+      playlistItems.map(p => p.uuid === target.uuid ? { ...p, songNoList: [] } : p)
+    )
+  }
+
   function onClickPlaylist(e: MouseEvent, songNo: string, title: string, difficulty: Difficulty) {
     e.stopPropagation()
     const target = e.currentTarget as HTMLElement | null
@@ -407,6 +419,13 @@
         />
         Only show songs in playlist
       </label>
+      <button
+        class="playlist-clear-btn"
+        on:click={clearSelectedPlaylist}
+        disabled={!playlistItems.length || selectedPlaylistId === 'all' || selectedPlaylistId === '' || selectedPlaylistSongSet.size === 0}
+      >
+        Clear Playlist
+      </button>
     </div>
 
     <div class="filter-row">
@@ -627,6 +646,10 @@
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .playlist-clear-btn {
+    margin-left: 4px;
   }
 
   .playlist-filter-toggle {
