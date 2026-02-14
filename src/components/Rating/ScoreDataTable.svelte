@@ -1,13 +1,14 @@
 <script lang="ts">
   import type { SortedScoreData } from './services/ScoreDataService'
   import { icons } from '../../assets'
-  import type { Badge, Difficulty } from './ratingTypes'
+  import type { Badge, Difficulty, DifficultyScoreData } from './ratingTypes'
   import type { DifficultyType, Playlist } from '../../types'
   import { BADGES, MAX_PLAYLIST_SONGS } from '../../constants';
   import { onDestroy, onMount } from 'svelte'
   import PlaylistContextMenu from '../Common/PlaylistContextMenu.svelte'
   import { PlaylistsStore } from '../../lib/playlist'
   import { Analyzer } from '../../lib/analyzer'
+  import { SongDB } from '../../lib/songDB'
 
   export let scoreDataSorted: SortedScoreData[]
   export let lastUpdated: string | null
@@ -16,6 +17,8 @@
   let openPlayCount = true
   let playlists: PlaylistsStore | null = null
   let analyzer: Analyzer | null = null
+  let songDB: SongDB | null = null
+  let mergedScores: SortedScoreData[] = []
   let playlistItems: Playlist[] = []
   let playlistSongSet: Set<string> = new Set()
   let selectedPlaylistSongSet: Set<string> = new Set()
@@ -26,6 +29,11 @@
   let playlistMenu:
   | { songNo: string; title: string; difficulty: Difficulty; x: number; y: number }
   | null = null
+
+  // Add song IDs here to always hide them from this table.
+  const MANUALLY_FILTERED_SONG_NOS = new Set<string>([
+    // '1234',
+  ])
 
   const closePlaylistMenu = () => (playlistMenu = null)
 
@@ -75,7 +83,31 @@
     const y = rect ? rect.bottom + window.scrollY : e.clientY + window.scrollY
     playlistMenu = { songNo, title, difficulty, x, y }
   }
-  
+
+  function createEmptyScoreData (): DifficultyScoreData {
+    return {
+      crown: null,
+      badge: null,
+      score: 0,
+      ranking: 0,
+      good: 0,
+      ok: 0,
+      bad: 0,
+      maxCombo: 0,
+      roll: 0,
+      count: {
+        play: 0,
+        clear: 0,
+        fullcombo: 0,
+        donderfullcombo: 0
+      }
+    }
+  }
+
+  function isDeletedSong (songNo: string): boolean {
+    return songDB?.getSongData(songNo)?.isDeleted === 1
+  }
+
   onMount(() => {
     const handler = () => closePlaylistMenu()
     document.body.addEventListener('click', handler)
@@ -86,6 +118,7 @@
         playlistItems = items
       })
       analyzer = await Analyzer.getInstance()
+      songDB = await SongDB.getInstance()
     })()
     return () => {
       document.body.removeEventListener('click', handler)
@@ -358,7 +391,45 @@
     })
   }
 
-  $: filteredScores = (scoreDataSorted ?? []).filter((s) => {
+  $: mergedScores = (() => {
+    // Keep explicit dependency so this recomputes when SongDB finishes loading.
+    const knownSongs = songDB === null ? [] : Array.from(songDB.getAll().values())
+    const mergedByKey = new Map<string, SortedScoreData>()
+
+    for (const song of knownSongs) {
+      if (MANUALLY_FILTERED_SONG_NOS.has(song.songNo)) continue
+      if (isDeletedSong(song.songNo)) continue
+
+      if ((song.courses.oni?.level ?? 0) > 0) {
+        const row: SortedScoreData = {
+          songName: song.title,
+          songNo: song.songNo,
+          difficulty: 'oni',
+          score: createEmptyScoreData()
+        }
+        mergedByKey.set(`${row.songNo}:${row.difficulty}`, row)
+      }
+
+      if ((song.courses.oni_ura?.level ?? 0) > 0) {
+        const row: SortedScoreData = {
+          songName: song.title,
+          songNo: song.songNo,
+          difficulty: 'ura',
+          score: createEmptyScoreData()
+        }
+        mergedByKey.set(`${row.songNo}:${row.difficulty}`, row)
+      }
+    }
+
+    for (const row of (scoreDataSorted ?? [])) {
+      if (isDeletedSong(row.songNo)) continue
+      mergedByKey.set(`${row.songNo}:${row.difficulty}`, row)
+    }
+
+    return Array.from(mergedByKey.values())
+  })()
+
+  $: filteredScores = (mergedScores ?? []).filter((s) => {
     const q = normalizeFilterQuery(filterQuery).trim()
     const shouldFilterToPlaylist = filterToPlaylistOnly
       && selectedPlaylistId !== 'all'
@@ -418,10 +489,10 @@
     return sortDir === 'asc' ? ' ▲' : ' ▼'
   }
 
-  $: totalPlays = (scoreDataSorted ?? []).reduce((acc, s) => acc + s.score.count.play, 0)
-  $: totalClears = (scoreDataSorted ?? []).reduce((acc, s) => acc + s.score.count.clear, 0)
-  $: totalFC = (scoreDataSorted ?? []).reduce((acc, s) => acc + s.score.count.fullcombo, 0)
-  $: totalDFC = (scoreDataSorted ?? []).reduce((acc, s) => acc + s.score.count.donderfullcombo, 0)
+  $: totalPlays = (mergedScores ?? []).reduce((acc, s) => acc + s.score.count.play, 0)
+  $: totalClears = (mergedScores ?? []).reduce((acc, s) => acc + s.score.count.clear, 0)
+  $: totalFC = (mergedScores ?? []).reduce((acc, s) => acc + s.score.count.fullcombo, 0)
+  $: totalDFC = (mergedScores ?? []).reduce((acc, s) => acc + s.score.count.donderfullcombo, 0)
 </script>
 
 <div class="score-data-section">
@@ -486,7 +557,7 @@
       />
     </div>
 
-    <span>Total Song Count: {scoreDataSorted.length}</span>
+    <span>Total Song Count: {mergedScores.length}</span>
 
     <div class="totals">
       <span class="total-item">
