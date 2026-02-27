@@ -32,179 +32,8 @@
 
   // Add song IDs here to always hide them from this table.
   const MANUALLY_FILTERED_SONG_NOS = new Set<string>([
-    '1234',
-    '28',
-    '271',
-    '301',
-    '339',
-    '449',
-    '515',
-    '544',
-    '637',
-    '640',
-    '694',
-    '707',
-    '739',
-    '756',
-    '780',
-    '782',
-    '783',
-    '804',
-    '822',
-    '899',
-    '900',
-    '902',
-    '903',
-    '904',
-    '1221',
-    '1222',
-    '1223',
-    '1224',
-    '1238',
-    '1396',
-    '1430',
-    'ns2_sekask',
-    'NS_p_516',
-    '1398',
-    'AC_10004',
-    '1156',
-    '1167',
-    '1440',
-    'NS2_0001',
-    '1444',
-    'NS2_0002',
-    'NS2_0012',
-    '1397',
-    'P4_G_D11',
-    '101',
-    '146',
-    '157',
-    '161',
-    '190',
-    '197',
-    '208',
-    '226',
-    '236',
-    '262',
-    '267',
-    '319',
-    '331',
-    '489',
-    '545',
-    '582',
-    '607',
-    '661',
-    '699',
-    '713',
-    '717',
-    '740',
-    '757',
-    '758',
-    '797',
-    '805',
-    '864',
-    '1097',
-    '1441',
-    'NS_p_680',
-    '1098',
-    'NS_p_518',
-    'ACX_0021',
-    'NS2_0004',
-    '1219',
-    '1389',
-    '1399',
-    '1445',
-    'NS2_0017',
-    '1443',
-    'NS2_0016',
-    'NS2_0006',
-    'NS_p_512',
-    '11',
-    '25',
-    '76',
-    '82',
-    '115',
-    '116',
-    '142',
-    '224',
-    '235',
-    '253',
-    '272',
-    '291',
-    '312',
-    '353',
-    '457',
-    '460',
-    '466',
-    '467',
-    '487',
-    '542',
-    '583',
-    '601',
-    '647',
-    '670',
-    '839',
-    '897',
-    '952',
-    'NS_p_773',
-    '1095',
-    '1096',
-    '1113',
-    'NS2_0010',
-    'ns2_martan',
-    'NS1_mk3rai',
-    'NS2_0014',
-    '1196',
-    '1294',
-    '1435',
-    'ns2_mikrol',
-    'ns2_miksst',
-    'NS2_0005',
-    '26',
-    '37',
-    '91',
-    '251',
-    '302',
-    '318',
-    '340',
-    '381',
-    '465',
-    '468',
-    '491',
-    '492',
-    '693',
-    '698',
-    '704',
-    'ACX_0026',
-    '415',
-    '706',
-    '955',
-    '993',
-    '1181',
-    'NS2_0009',
-    'NS_p_760',
-    'NS2_0007',
-    'NS_p_683',
-    '424',
-    '541',
-    '697',
-    '711',
-    '754',
-    '1089',
-    '1233',
-    '1436',
-    '1439',
-    '1442',
-    'NS2_0011',
-    'NS_p_534',
-    'NS_p_602',
-    'ns2_masejn',
-    'NS2_0015',
+    // '1234',
   ])
-  let checkingAvailability = false
-  let availabilityStatus: string | null = null
-  let availabilitySongNosText = ''
-  let showUnavailableSongsOnly = false
 
   const closePlaylistMenu = () => (playlistMenu = null)
 
@@ -277,83 +106,6 @@
 
   function isDeletedSong (songNo: string): boolean {
     return songDB?.getSongData(songNo)?.isDeleted === 1
-  }
-
-  function isCatalogFilteredSong (songNo: string): boolean {
-    return MANUALLY_FILTERED_SONG_NOS.has(songNo) || isDeletedSong(songNo)
-  }
-
-  async function hasDonderSession (): Promise<boolean> {
-    try {
-      const response = await fetch('https://donderhiroba.jp/mypage_top.php', { credentials: 'include' })
-      const html = await response.text()
-      const doc = new DOMParser().parseFromString(html, 'text/html')
-      return doc.querySelector('#_tckt') !== null
-    } catch {
-      return false
-    }
-  }
-
-  async function isSongPageAvailable (songNo: string, level: 4 | 5): Promise<boolean> {
-    try {
-      const url = `https://donderhiroba.jp/score_detail.php?song_no=${songNo}&level=${level}`
-      const response = await fetch(url, { credentials: 'include' })
-      if (!response.ok) return false
-      const html = await response.text()
-      const doc = new DOMParser().parseFromString(html, 'text/html')
-      return doc.querySelector('.scoreDetailTable') !== null
-    } catch {
-      return false
-    }
-  }
-
-  async function checkAvailability (): Promise<void> {
-    if (checkingAvailability) return
-    checkingAvailability = true
-    availabilityStatus = 'Checking login/session...'
-    availabilitySongNosText = ''
-
-    try {
-      if (!await hasDonderSession()) {
-        availabilityStatus = 'Not logged in to Donder Hiroba. Please log in and try again.'
-        return
-      }
-
-      const songLevelMap = new Map<string, 4 | 5>()
-      for (const row of displayedScores) {
-        const prev = songLevelMap.get(row.songNo)
-        if (row.difficulty === 'oni') {
-          songLevelMap.set(row.songNo, 4)
-          continue
-        }
-        if (prev === undefined) songLevelMap.set(row.songNo, 5)
-      }
-
-      const entries = Array.from(songLevelMap.entries())
-      const detectedUnavailable: string[] = []
-      for (let i = 0; i < entries.length; i++) {
-        const [songNo, level] = entries[i]
-        availabilityStatus = `Checking ${i + 1}/${entries.length}...`
-        const available = await isSongPageAvailable(songNo, level)
-        if (!available && !isDeletedSong(songNo)) {
-          detectedUnavailable.push(songNo)
-        }
-      }
-
-      const uniqueSongNos = Array.from(new Set<string>(detectedUnavailable))
-        .filter((songNo) => !MANUALLY_FILTERED_SONG_NOS.has(songNo))
-        .sort((a, b) => Number(a) - Number(b))
-
-      availabilityStatus = uniqueSongNos.length > 0
-        ? `Found ${uniqueSongNos.length} unavailable songs not in manual list.`
-        : 'No unavailable songs found outside your manual list.'
-      availabilitySongNosText = uniqueSongNos.map((songNo) => `'${songNo}',`).join('\n')
-    } catch (e) {
-      console.error(e)
-      availabilityStatus = 'Availability check failed. Please try again.'
-    } finally {
-      checkingAvailability = false
-    }
   }
 
   onMount(() => {
@@ -645,7 +397,8 @@
     const mergedByKey = new Map<string, SortedScoreData>()
 
     for (const song of knownSongs) {
-      if (isCatalogFilteredSong(song.songNo)) continue
+      if (MANUALLY_FILTERED_SONG_NOS.has(song.songNo)) continue
+      if (isDeletedSong(song.songNo)) continue
 
       if ((song.courses.oni?.level ?? 0) > 0) {
         const row: SortedScoreData = {
@@ -676,45 +429,7 @@
     return Array.from(mergedByKey.values())
   })()
 
-  $: filteredOutScores = (() => {
-    const filteredByKey = new Map<string, SortedScoreData>()
-    const knownSongs = songDB === null ? [] : Array.from(songDB.getAll().values())
-
-    for (const song of knownSongs) {
-      if (!isCatalogFilteredSong(song.songNo)) continue
-
-      if ((song.courses.oni?.level ?? 0) > 0) {
-        const row: SortedScoreData = {
-          songName: song.title,
-          songNo: song.songNo,
-          difficulty: 'oni',
-          score: createEmptyScoreData()
-        }
-        filteredByKey.set(`${row.songNo}:${row.difficulty}`, row)
-      }
-
-      if ((song.courses.oni_ura?.level ?? 0) > 0) {
-        const row: SortedScoreData = {
-          songName: song.title,
-          songNo: song.songNo,
-          difficulty: 'ura',
-          score: createEmptyScoreData()
-        }
-        filteredByKey.set(`${row.songNo}:${row.difficulty}`, row)
-      }
-    }
-
-    for (const row of (scoreDataSorted ?? [])) {
-      if (!isDeletedSong(row.songNo)) continue
-      filteredByKey.set(`${row.songNo}:${row.difficulty}`, row)
-    }
-
-    return Array.from(filteredByKey.values())
-  })()
-
-  $: currentBaseScores = showUnavailableSongsOnly ? filteredOutScores : mergedScores
-
-  $: filteredScores = (currentBaseScores ?? []).filter((s) => {
+  $: filteredScores = (mergedScores ?? []).filter((s) => {
     const q = normalizeFilterQuery(filterQuery).trim()
     const shouldFilterToPlaylist = filterToPlaylistOnly
       && selectedPlaylistId !== 'all'
@@ -774,10 +489,10 @@
     return sortDir === 'asc' ? ' ▲' : ' ▼'
   }
 
-  $: totalPlays = (currentBaseScores ?? []).reduce((acc, s) => acc + s.score.count.play, 0)
-  $: totalClears = (currentBaseScores ?? []).reduce((acc, s) => acc + s.score.count.clear, 0)
-  $: totalFC = (currentBaseScores ?? []).reduce((acc, s) => acc + s.score.count.fullcombo, 0)
-  $: totalDFC = (currentBaseScores ?? []).reduce((acc, s) => acc + s.score.count.donderfullcombo, 0)
+  $: totalPlays = (mergedScores ?? []).reduce((acc, s) => acc + s.score.count.play, 0)
+  $: totalClears = (mergedScores ?? []).reduce((acc, s) => acc + s.score.count.clear, 0)
+  $: totalFC = (mergedScores ?? []).reduce((acc, s) => acc + s.score.count.fullcombo, 0)
+  $: totalDFC = (mergedScores ?? []).reduce((acc, s) => acc + s.score.count.donderfullcombo, 0)
 </script>
 
 <div class="score-data-section">
@@ -792,10 +507,6 @@
   <button on:click={() => { openPlayCount = !openPlayCount }}>
     Play Count (click to expand)
   </button>
-  <label class="playlist-filter-toggle">
-    <input type="checkbox" bind:checked={showUnavailableSongsOnly} />
-    Show unavailable songs only
-  </label>
 
   {#if openPlayCount}
     <div class="playlist-highlight">
@@ -844,18 +555,9 @@
         placeholder='name, level>=9, score>1000000, good%>=98'
         bind:value={filterQuery}
       />
-      <button on:click={checkAvailability} disabled={checkingAvailability}>
-        {checkingAvailability ? 'Checking...' : 'Check availability'}
-      </button>
     </div>
-    {#if availabilityStatus}
-      <div class="availability-status">{availabilityStatus}</div>
-    {/if}
-    {#if availabilitySongNosText}
-      <pre class="availability-list">{availabilitySongNosText}</pre>
-    {/if}
 
-    <span>Total Song Count: {currentBaseScores.length}</span>
+    <span>Total Song Count: {mergedScores.length}</span>
 
     <div class="totals">
       <span class="total-item">
@@ -1085,21 +787,6 @@
 
   .filter-row input {
     min-width: 240px;
-  }
-
-  .availability-status {
-    color: #cfcfcf;
-    font-size: 0.9rem;
-  }
-
-  .availability-list {
-    margin: 0;
-    padding: 8px;
-    max-width: 600px;
-    overflow: auto;
-    text-align: left;
-    background: #1b1b1b;
-    border: 1px solid #333;
   }
 
   .total-item {
