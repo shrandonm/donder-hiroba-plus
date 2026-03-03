@@ -21,6 +21,8 @@
   let selectedPlaylistSongSet: Set<string> = new Set()
   let selectedPlaylistId = 'all'
   let filterToPlaylistOnly = false
+  let openLevelPlayCount = false
+  let hasOpenedLevelPlayCount = false
   let unsubscribePlaylists: (() => void) | null = null
   let filterQuery = ''
   let playlistMenu:
@@ -422,6 +424,28 @@
   $: totalClears = (filteredScores ?? []).reduce((acc, s) => acc + s.score.count.clear, 0)
   $: totalFC = (filteredScores ?? []).reduce((acc, s) => acc + s.score.count.fullcombo, 0)
   $: totalDFC = (filteredScores ?? []).reduce((acc, s) => acc + s.score.count.donderfullcombo, 0)
+
+  $: levelPlayBuckets = (() => {
+    if (!hasOpenedLevelPlayCount) return []
+    const buckets = new Map<number, { plays: number, songs: number }>()
+    for (const s of (filteredScores ?? [])) {
+      const level = getLevelValue(s)
+      if (!Number.isFinite(level) || level < 6) continue
+      const min = Math.floor(level)
+      const bucket = buckets.get(min) ?? { plays: 0, songs: 0 }
+      bucket.plays += s.score.count.play
+      bucket.songs += 1
+      buckets.set(min, bucket)
+    }
+    return Array.from(buckets.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([min, v]) => ({
+        min,
+        max: min + 1,
+        plays: v.plays,
+        songs: v.songs
+      }))
+  })()
 </script>
 
 <div class="score-data-section">
@@ -509,6 +533,40 @@
         {totalDFC}
       </span>
     </div>
+
+    <button on:click={() => {
+      openLevelPlayCount = !openLevelPlayCount
+      if (openLevelPlayCount) hasOpenedLevelPlayCount = true
+    }}>
+      Level Play Counts (click to expand)
+    </button>
+
+    {#if openLevelPlayCount}
+      <table class="level-play-table">
+        <thead>
+          <tr>
+            <th>Level Range</th>
+            <th>Song Count</th>
+            <th>Total Plays</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#if levelPlayBuckets.length === 0}
+            <tr>
+              <td colspan="3">No filtered songs in level range [6, +inf)</td>
+            </tr>
+          {:else}
+            {#each levelPlayBuckets as bucket (bucket.min)}
+              <tr>
+                <td>level {bucket.min}</td>
+                <td>{bucket.songs}</td>
+                <td>{bucket.plays}</td>
+              </tr>
+            {/each}
+          {/if}
+        </tbody>
+      </table>
+    {/if}
 
     <table class="play-count-table">
       <thead>
@@ -732,6 +790,22 @@
     border-collapse: collapse;
     table-layout: auto; /* allow natural column sizing */
     color: #f0f0f0;
+  }
+
+  .level-play-table {
+    width: 100%;
+    max-width: 360px;
+    border: 1px solid black;
+    border-collapse: collapse;
+    color: #f0f0f0;
+  }
+
+  .level-play-table th,
+  .level-play-table td {
+    border: 1px solid black;
+    padding: 4px 8px;
+    text-align: center;
+    white-space: nowrap;
   }
   .play-count-table td img {
     width: 20px;
