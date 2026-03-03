@@ -418,10 +418,10 @@
     return sortDir === 'asc' ? ' ▲' : ' ▼'
   }
 
-  $: totalPlays = (scoreDataSorted ?? []).reduce((acc, s) => acc + s.score.count.play, 0)
-  $: totalClears = (scoreDataSorted ?? []).reduce((acc, s) => acc + s.score.count.clear, 0)
-  $: totalFC = (scoreDataSorted ?? []).reduce((acc, s) => acc + s.score.count.fullcombo, 0)
-  $: totalDFC = (scoreDataSorted ?? []).reduce((acc, s) => acc + s.score.count.donderfullcombo, 0)
+  $: totalPlays = (filteredScores ?? []).reduce((acc, s) => acc + s.score.count.play, 0)
+  $: totalClears = (filteredScores ?? []).reduce((acc, s) => acc + s.score.count.clear, 0)
+  $: totalFC = (filteredScores ?? []).reduce((acc, s) => acc + s.score.count.fullcombo, 0)
+  $: totalDFC = (filteredScores ?? []).reduce((acc, s) => acc + s.score.count.donderfullcombo, 0)
 </script>
 
 <div class="score-data-section">
