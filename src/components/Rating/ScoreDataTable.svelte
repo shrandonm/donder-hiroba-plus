@@ -360,6 +360,11 @@
     })
   }
 
+  function formatHours(totalSeconds: number): string {
+    const hours = Math.max(0, totalSeconds) / 3600
+    return `${hours.toFixed(2)} hours`
+  }
+
   $: filteredScores = (scoreDataSorted ?? []).filter((s) => {
     const q = normalizeFilterQuery(filterQuery).trim()
     const shouldFilterToPlaylist = filterToPlaylistOnly
@@ -424,17 +429,23 @@
   $: totalClears = (filteredScores ?? []).reduce((acc, s) => acc + s.score.count.clear, 0)
   $: totalFC = (filteredScores ?? []).reduce((acc, s) => acc + s.score.count.fullcombo, 0)
   $: totalDFC = (filteredScores ?? []).reduce((acc, s) => acc + s.score.count.donderfullcombo, 0)
+  $: totalPlayTimeSeconds = (filteredScores ?? []).reduce((acc, s) => {
+    const duration = analyzer?.getSongDuration(s.songNo, getDifficultyType(s.difficulty)) ?? 0
+    return acc + (duration * s.score.count.play)
+  }, 0)
 
   $: levelPlayBuckets = (() => {
     if (!hasOpenedLevelPlayCount) return []
-    const buckets = new Map<number, { plays: number, songs: number }>()
+    const buckets = new Map<number, { plays: number, songs: number, timeSeconds: number }>()
     for (const s of (filteredScores ?? [])) {
       const level = getLevelValue(s)
       if (!Number.isFinite(level) || level < 6) continue
       const min = Math.floor(level)
-      const bucket = buckets.get(min) ?? { plays: 0, songs: 0 }
+      const bucket = buckets.get(min) ?? { plays: 0, songs: 0, timeSeconds: 0 }
+      const songSeconds = analyzer?.getSongDuration(s.songNo, getDifficultyType(s.difficulty)) ?? 0
       bucket.plays += s.score.count.play
       bucket.songs += 1
+      bucket.timeSeconds += (songSeconds * s.score.count.play)
       buckets.set(min, bucket)
     }
     return Array.from(buckets.entries())
@@ -443,7 +454,8 @@
         min,
         max: min + 1,
         plays: v.plays,
-        songs: v.songs
+        songs: v.songs,
+        timeSeconds: v.timeSeconds
       }))
   })()
 </script>
@@ -532,6 +544,11 @@
         <img class="icon" src={icons.crowns.donderfull} alt="Donder Full" title="Donder Full" />
         {totalDFC}
       </span>
+
+      <span class="total-item">
+        <img class="icon" src={icons.hourglass} alt="Time Spent" title="Time Spent" />
+        {formatHours(totalPlayTimeSeconds)}
+      </span>
     </div>
 
     <button on:click={() => {
@@ -548,12 +565,13 @@
             <th>Level Range</th>
             <th>Song Count</th>
             <th>Total Plays</th>
+            <th>Time Spent</th>
           </tr>
         </thead>
         <tbody>
           {#if levelPlayBuckets.length === 0}
             <tr>
-              <td colspan="3">No filtered songs in level range [6, +inf)</td>
+              <td colspan="4">No filtered songs in level range [6, +inf)</td>
             </tr>
           {:else}
             {#each levelPlayBuckets as bucket (bucket.min)}
@@ -561,6 +579,7 @@
                 <td>level {bucket.min}</td>
                 <td>{bucket.songs}</td>
                 <td>{bucket.plays}</td>
+                <td>{formatHours(bucket.timeSeconds)}</td>
               </tr>
             {/each}
           {/if}
