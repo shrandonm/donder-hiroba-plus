@@ -6,6 +6,8 @@ export interface SortedScoreData {
   difficulty: Difficulty
   score: DifficultyScoreData
   songNo: string
+  lastPlayed: number | null
+  lastUpscored: number | null
 }
 
 export function updateScoreDataSorted (storage: RecentScoreStorage): {
@@ -21,11 +23,14 @@ export function updateScoreDataSorted (storage: RecentScoreStorage): {
   for (const [songNo, scoreData] of Object.entries(storage.getMap())) {
     for (const [difficulty, score] of Object.entries(scoreData.difficulty)) {
       if (difficulty !== 'oni' && difficulty !== 'ura') continue
+      const ts = storage.getPlayTimestamp(songNo, difficulty)
       scoreDataSorted.push({
         songName: scoreData.title,
         difficulty,
         score,
-        songNo
+        songNo,
+        lastPlayed: ts?.lastPlayed ?? null,
+        lastUpscored: ts?.lastUpscored ?? null
       })
       totalPlay += score.count.play
       totalClear += score.count.clear

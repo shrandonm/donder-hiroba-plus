@@ -1,16 +1,23 @@
 import type { ScoreData } from './ratingTypes'
 
+export interface PlayTimestamp {
+  lastPlayed: number | null
+  lastUpscored: number | null
+}
+
 class RecentScoreStorage {
   private scoreDataMap: Record<string, ScoreData> = {}
   private lastUpdated: string | null = null
   private readonly donderId: string = ''
   private recentScoresByUser: string
   private lastUpdatedByUser: string
+  private playTimestampsMap: Record<string, PlayTimestamp> = {}
 
   constructor (donderId: string = '') {
     this.scoreDataMap = {}
     this.lastUpdated = null
     this.donderId = donderId
+    this.playTimestampsMap = {}
 
     this.recentScoresByUser = `recentScores-${this.donderId}`
     this.lastUpdatedByUser = `lastUpdated-${this.donderId}`
@@ -19,6 +26,7 @@ class RecentScoreStorage {
   async clear (): Promise<void> {
     this.scoreDataMap = {}
     this.lastUpdated = 'null'
+    this.playTimestampsMap = {}
     await this.saveToStorage()
   }
 
@@ -36,6 +44,12 @@ class RecentScoreStorage {
     if (result.lastUpdated !== undefined) {
       this.lastUpdated = result.lastUpdated
     }
+
+    const tsKey = `playTimestamps-${this.donderId}`
+    const tsResult = await chrome.storage.local.get([tsKey])
+    if (tsResult[tsKey] !== undefined) {
+      this.playTimestampsMap = tsResult[tsKey] as Record<string, PlayTimestamp>
+    }
   }
 
   private formatDate (date: Date): string {
@@ -52,7 +66,8 @@ class RecentScoreStorage {
   private async saveToStorage (): Promise<void> {
     await chrome.storage.local.set({
       [this.recentScoresByUser]: this.scoreDataMap,
-      [this.lastUpdatedByUser]: this.formatDate(new Date())
+      [this.lastUpdatedByUser]: this.formatDate(new Date()),
+      [`playTimestamps-${this.donderId}`]: this.playTimestampsMap
     })
   }
 
@@ -67,13 +82,33 @@ class RecentScoreStorage {
   }
 
   private async mergeSingle (songNo: string, scoreData: ScoreData): Promise<void> {
-    if (this.scoreDataMap[songNo] === undefined) {
+    const now = Date.now()
+    const existingSong = this.scoreDataMap[songNo]
+
+    // Update play timestamps by comparing new data against what's stored
+    for (const [diff, newDiffData] of Object.entries(scoreData.difficulty)) {
+      if (!newDiffData) continue
+      const oldDiffData = existingSong?.difficulty[diff as keyof typeof existingSong.difficulty]
+      if (oldDiffData === undefined) continue // only track changes, not first-time entries
+
+      const key = `${songNo}:${diff}`
+      const existing: PlayTimestamp = this.playTimestampsMap[key] ?? { lastPlayed: null, lastUpscored: null }
+      if (newDiffData.count.play > oldDiffData.count.play) {
+        existing.lastPlayed = now
+      }
+      if (newDiffData.score > oldDiffData.score) {
+        existing.lastUpscored = now
+      }
+      this.playTimestampsMap[key] = existing
+    }
+
+    if (existingSong === undefined) {
       this.scoreDataMap[songNo] = scoreData
     } else {
       this.scoreDataMap[songNo] = {
-        ...this.scoreDataMap[songNo],
+        ...existingSong,
         difficulty: {
-          ...this.scoreDataMap[songNo].difficulty,
+          ...existingSong.difficulty,
           ...scoreData.difficulty
         }
       }
@@ -93,6 +128,11 @@ class RecentScoreStorage {
       return null
     }
     return this.scoreDataMap[songNo]
+  }
+
+  getPlayTimestamp (songNo: string, difficulty: string): PlayTimestamp | null {
+    const key = `${songNo}:${difficulty}`
+    return this.playTimestampsMap[key] ?? null
   }
 
   getLastUpdated (): string | null {

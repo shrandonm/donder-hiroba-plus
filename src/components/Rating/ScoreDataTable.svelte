@@ -119,6 +119,8 @@
     | 'donderfullcombo'
     | 'songduration'
     | 'maxbpm'
+    | 'lastplayed'
+    | 'lastupscored'
     
   let sortKey: SortKey = 'name'
   let sortDir: 'asc' | 'desc' = 'asc'
@@ -157,6 +159,8 @@
       case 'donderfullcombo': return s.score.count.donderfullcombo
       case 'songduration': return analyzer?.getSongDuration(s.songNo, getDifficultyType(s.difficulty)) ?? 0
       case 'maxbpm': return analyzer?.getSongMaxBpm(s.songNo) ?? 0
+      case 'lastplayed': return s.lastPlayed ?? 0
+      case 'lastupscored': return s.lastUpscored ?? 0
     }
   }
 
@@ -367,6 +371,13 @@
   function formatHours(totalSeconds: number): string {
     const hours = Math.max(0, totalSeconds) / 3600
     return `${hours.toFixed(2)} hours`
+  }
+
+  function daysSince(ts: number | null): string {
+    if (ts === null) return '-'
+    const days = Math.floor((Date.now() - ts) / 86400000)
+    if (days < 1) return '<1d'
+    return `${days}d`
   }
 
   $: filteredScores = (scoreDataSorted ?? []).filter((s) => {
@@ -644,6 +655,14 @@
             {sortIndicator('play')}
           </th>
 
+          <th class="th-sort th-icon" on:click={() => toggleSort('lastplayed')}>
+            Last Played{sortIndicator('lastplayed')}
+          </th>
+
+          <th class="th-sort th-icon" on:click={() => toggleSort('lastupscored')}>
+            Last PB{sortIndicator('lastupscored')}
+          </th>
+
           {#if showAdvanced}
           <th class="th-sort th-icon" on:click={() => toggleSort('clear')}>
             <img src={icons.crowns.silver} alt="Clear" title="Clear" />
@@ -718,6 +737,8 @@
             {/if}
 
             <td>{score.score.count.play}</td>
+            <td>{daysSince(score.lastPlayed)}</td>
+            <td>{daysSince(score.lastUpscored)}</td>
             {#if showAdvanced}
             <td>{score.score.count.clear}</td>
             <td>{score.score.count.fullcombo}</td>
