@@ -591,6 +591,7 @@
       </table>
     {/if}
 
+    <div class="table-scroll-wrapper">
     <table class="play-count-table">
       <thead>
         <tr>
@@ -721,6 +722,7 @@
         {/each}
       </tbody>
     </table>
+    </div>
   {/if}
   {#if playlistMenu && playlists}
     <PlaylistContextMenu
@@ -804,6 +806,12 @@
     gap: 6px;
     align-items: center;
     white-space: nowrap;
+  }
+
+  .table-scroll-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .play-count-table {
