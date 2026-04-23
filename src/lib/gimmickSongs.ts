@@ -16,6 +16,7 @@ const GIMMICK_SONG_NOS: string[] = [
   // Add song numbers here, e.g.:
   '1134', // Aleph-0
   '1297', // SAVAGE DELIGHT
+  '181', // 80ROCHI
 ]
 
 export const gimmickSongSet = new Set<string>(GIMMICK_SONG_NOS)

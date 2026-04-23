@@ -27,6 +27,7 @@
   let unsubscribePlaylists: (() => void) | null = null
   let filterQuery = ''
   let hideGimmicks = false
+  let showAdvanced = false
   let playlistMenu:
   | { songNo: string; title: string; difficulty: Difficulty; x: number; y: number }
   | null = null
@@ -490,14 +491,7 @@
           <option value={playlist.uuid}>{playlist.title}</option>
         {/each}
       </select>
-      <label class="playlist-filter-toggle">
-        <input
-          type="checkbox"
-          bind:checked={filterToPlaylistOnly}
-          disabled={!playlistItems.length}
-        />
-        Only show songs in playlist
-      </label>
+
       <button
         class="playlist-add-top-btn"
         on:click={addTop30ToPlaylist}
@@ -523,7 +517,12 @@
         placeholder='name, level>=9, score>1000000, good%>=98'
         bind:value={filterQuery}
       />
-      <label class="gimmick-filter-toggle"><input type="checkbox" bind:checked={hideGimmicks} />Hide gimmick songs</label>
+    </div>
+
+    <div class="options-row">
+      <label class="option-toggle"><input type="checkbox" bind:checked={filterToPlaylistOnly} disabled={!playlistItems.length} />Only show playlist songs</label>
+      <label class="option-toggle"><input type="checkbox" bind:checked={hideGimmicks} />Hide gimmick songs</label>
+      <label class="option-toggle"><input type="checkbox" bind:checked={showAdvanced} />Show advanced stats</label>
     </div>
 
     <span>Total Song Count: {scoreDataSorted.length}</span>
@@ -623,6 +622,7 @@
           <th class="th-sort th-icon" on:click={() => toggleSort('goodpercent')}>
             Good %{sortIndicator('goodpercent')}
           </th>
+          {#if showAdvanced}
           <th class="th-sort th-icon" on:click={() => toggleSort('goods')}>
             Goods{sortIndicator('goods')}
           </th>
@@ -635,6 +635,7 @@
           <th class="th-sort th-icon" on:click={() => toggleSort('roll')}>
             Rolls{sortIndicator('roll')}
           </th>
+          {/if}
           <!-- End note stats -->
           
           <th class="th-sort th-icon" on:click={() => toggleSort('play')}>
@@ -642,6 +643,7 @@
             {sortIndicator('play')}
           </th>
 
+          {#if showAdvanced}
           <th class="th-sort th-icon" on:click={() => toggleSort('clear')}>
             <img src={icons.crowns.silver} alt="Clear" title="Clear" />
             {sortIndicator('clear')}
@@ -665,6 +667,7 @@
             BPM{sortIndicator('maxbpm')}
           </th>
           <!-- End song info -->
+          {/if}
         </tr>
       </thead>
 
@@ -706,18 +709,22 @@
             </td>
             
             <td>{(getGoodPercent(score) * 100).toFixed(2)}%</td>
+            {#if showAdvanced}
             <td>{score.score.good}</td>
             <td>{score.score.ok}</td>
             <td>{score.score.bad}</td>
             <td>{score.score.roll}</td>
+            {/if}
 
             <td>{score.score.count.play}</td>
+            {#if showAdvanced}
             <td>{score.score.count.clear}</td>
             <td>{score.score.count.fullcombo}</td>
             <td>{score.score.count.donderfullcombo}</td>
             
             <td>{analyzer?.getSongDuration(score.songNo, getDifficultyType(score.difficulty)) ?? 0}</td>
             <td>{analyzer?.getSongMinBpm(score.songNo) ?? 0} - {analyzer?.getSongMaxBpm(score.songNo) ?? 0}</td>
+            {/if}
           </tr>
         {/each}
       </tbody>
@@ -784,13 +791,6 @@
     margin-left: 4px;
   }
 
-  .playlist-filter-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    white-space: nowrap;
-  }
-
   .filter-row {
     display: flex;
     align-items: center;
@@ -815,8 +815,8 @@
   }
 
   .play-count-table {
-    width: 100%;
-    max-width: 600px;
+    width: max-content;
+    margin: 0 auto;
     border: 1px solid black;
     border-collapse: collapse;
     table-layout: auto; /* allow natural column sizing */
@@ -871,12 +871,20 @@
     text-shadow: 0 0 6px #e879f9, 0 0 12px #c026d3;
   }
 
-  .gimmick-filter-toggle {
+  .options-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .option-toggle {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     white-space: nowrap;
-    margin-left: 8px;
+    cursor: pointer;
   }
 
   /* name column: take remaining width + ellipsis */
