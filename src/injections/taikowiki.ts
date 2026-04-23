@@ -2,9 +2,12 @@ import { PlaylistsStore } from '../lib/playlist'
 import PlaylistContextMenu from '../components/Common/PlaylistContextMenu.svelte'
 import RecentScoreStorage from '../components/Rating/recentScoreStorage'
 import type { Difficulty } from 'node-hiroba/types'
+import { isGimmickSong } from '../lib/gimmickSongs'
 
 const PLAYLIST_OUTLINE_CLASS = 'hiroba-playlist-outline'
 const PLAYLIST_OUTLINE_STYLE_ID = 'hiroba-playlist-outline-style'
+const GIMMICK_BADGE_CLASS = 'hiroba-gimmick-badge'
+const GIMMICK_STYLE_ID = 'hiroba-gimmick-style'
 
 const isDiffchartPage = (): boolean => {
   return location.pathname.toLowerCase().includes('diffchart')
@@ -52,6 +55,46 @@ const updatePlaylistOutlines = (playlistsStore: PlaylistsStore): void => {
   for (const link of links) {
     const songNo = getSongNoFromLink(link)
     link.classList.toggle(PLAYLIST_OUTLINE_CLASS, songNo !== null && playlistSongSet.has(songNo))
+  }
+}
+
+const ensureGimmickStyle = (): void => {
+  if (document.getElementById(GIMMICK_STYLE_ID) !== null) return
+  const style = document.createElement('style')
+  style.id = GIMMICK_STYLE_ID
+  style.textContent = `
+    .${GIMMICK_BADGE_CLASS} {
+      color: #e879f9;
+      font-size: 1.1em;
+      font-weight: bold;
+      margin-right: 4px;
+      vertical-align: middle;
+      pointer-events: none;
+      text-shadow: 0 0 6px #e879f9, 0 0 12px #c026d3;
+    }
+  `
+  document.head.appendChild(style)
+}
+
+const updateGimmickBadges = (): void => {
+  if (!isDiffchartPage()) return
+  ensureGimmickStyle()
+  const links = document.querySelectorAll<HTMLAnchorElement>('a[href*="/song/"]')
+  for (const link of links) {
+    const songNo = getSongNoFromLink(link)
+    if (songNo === null) continue
+    const existing = link.querySelector(`.${GIMMICK_BADGE_CLASS}`)
+    if (isGimmickSong(songNo)) {
+      if (existing === null) {
+        const badge = document.createElement('span')
+        badge.className = GIMMICK_BADGE_CLASS
+        badge.textContent = '\u2726'
+        badge.title = 'Gimmick song'
+        link.prepend(badge)
+      }
+    } else {
+      existing?.remove()
+    }
   }
 }
 
@@ -118,6 +161,7 @@ const insertContextMenu = (playlistsStore: PlaylistsStore, recentScoreStorage: R
   }
 
   updatePlaylistOutlines(playlistsStore)
+  updateGimmickBadges()
 
   document.body.addEventListener('click', removeContextMenu)
 }
@@ -134,6 +178,7 @@ export default async (): Promise<void> => {
     let executionCount = 0
     const intervalId = setInterval(() => {
       insertContextMenu(playlistsStore, recentScoreStore)
+      updateGimmickBadges()
       executionCount++
       if (executionCount >= 5) {
         clearInterval(intervalId)

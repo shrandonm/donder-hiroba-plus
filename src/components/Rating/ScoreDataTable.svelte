@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SortedScoreData } from './services/ScoreDataService'
   import { icons } from '../../assets'
+  import { isGimmickSong } from '../../lib/gimmickSongs'
   import type { Badge, Difficulty } from './ratingTypes'
   import type { DifficultyType, Playlist } from '../../types'
   import { BADGES, MAX_PLAYLIST_SONGS } from '../../constants';
@@ -25,6 +26,7 @@
   let hasOpenedLevelPlayCount = false
   let unsubscribePlaylists: (() => void) | null = null
   let filterQuery = ''
+  let hideGimmicks = false
   let playlistMenu:
   | { songNo: string; title: string; difficulty: Difficulty; x: number; y: number }
   | null = null
@@ -367,6 +369,7 @@
 
   $: filteredScores = (scoreDataSorted ?? []).filter((s) => {
     const q = normalizeFilterQuery(filterQuery).trim()
+    if (hideGimmicks && isGimmickSong(s.songNo)) return false
     const shouldFilterToPlaylist = filterToPlaylistOnly
       && selectedPlaylistId !== 'all'
       && selectedPlaylistId !== ''
@@ -520,6 +523,7 @@
         placeholder='name, level>=9, score>1000000, good%>=98'
         bind:value={filterQuery}
       />
+      <label class="gimmick-filter-toggle"><input type="checkbox" bind:checked={hideGimmicks} />Hide gimmick songs</label>
     </div>
 
     <span>Total Song Count: {scoreDataSorted.length}</span>
@@ -665,7 +669,7 @@
 
       <tbody>
         {#each displayedScores as score (score.songNo + ':' + score.difficulty)}
-          <tr class:in-playlist={playlistSongSet.has(score.songNo)}>
+          <tr class:in-playlist={playlistSongSet.has(score.songNo)} class:is-gimmick={isGimmickSong(score.songNo)}>
             <td class="td-icon">
               {#if playlists}
                 <button class="playlist-btn" on:click={(e) => onClickPlaylist(e, score.songNo, score.songName, score.difficulty)}>
@@ -681,7 +685,7 @@
                 target="_blank"
                 rel="noreferrer"
               >
-                ({score.songNo}) {score.songName}
+                {#if isGimmickSong(score.songNo)}<span class="gimmick-badge" title="Gimmick song">✦</span>{/if}({score.songNo}) {score.songName}
               </a>
             </td>
 
@@ -849,6 +853,22 @@
 
   .play-count-table tbody tr.in-playlist {
     background-color: #3a3420;
+  }
+
+  .gimmick-badge {
+    color: #e879f9;
+    margin-right: 4px;
+    font-size: 1.1em;
+    vertical-align: middle;
+    text-shadow: 0 0 6px #e879f9, 0 0 12px #c026d3;
+  }
+
+  .gimmick-filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    margin-left: 8px;
   }
 
   /* name column: take remaining width + ellipsis */
