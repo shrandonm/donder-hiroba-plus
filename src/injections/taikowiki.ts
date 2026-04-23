@@ -3,11 +3,14 @@ import PlaylistContextMenu from '../components/Common/PlaylistContextMenu.svelte
 import RecentScoreStorage from '../components/Rating/recentScoreStorage'
 import type { Difficulty } from 'node-hiroba/types'
 import { isGimmickSong } from '../lib/gimmickSongs'
+import { isUnavailableSong } from '../lib/unavailableSongs'
 
 const PLAYLIST_OUTLINE_CLASS = 'hiroba-playlist-outline'
 const PLAYLIST_OUTLINE_STYLE_ID = 'hiroba-playlist-outline-style'
 const GIMMICK_BADGE_CLASS = 'hiroba-gimmick-badge'
 const GIMMICK_STYLE_ID = 'hiroba-gimmick-style'
+const UNAVAILABLE_BADGE_CLASS = 'hiroba-unavailable-badge'
+const UNAVAILABLE_STYLE_ID = 'hiroba-unavailable-style'
 
 const isDiffchartPage = (): boolean => {
   return location.pathname.toLowerCase().includes('diffchart')
@@ -98,6 +101,54 @@ const updateGimmickBadges = (): void => {
   }
 }
 
+const ensureUnavailableStyle = (): void => {
+  if (document.getElementById(UNAVAILABLE_STYLE_ID) !== null) return
+  const style = document.createElement('style')
+  style.id = UNAVAILABLE_STYLE_ID
+  style.textContent = `
+    a.${UNAVAILABLE_BADGE_CLASS}-link {
+      color: #f87171 !important;
+      text-decoration: line-through !important;
+      opacity: 0.75;
+    }
+    .${UNAVAILABLE_BADGE_CLASS} {
+      color: #f87171;
+      font-size: 1.1em;
+      font-weight: bold;
+      margin-right: 4px;
+      vertical-align: middle;
+      pointer-events: none;
+      text-decoration: none !important;
+      text-shadow: 0 0 6px #f87171, 0 0 12px #dc2626;
+    }
+  `
+  document.head.appendChild(style)
+}
+
+const updateUnavailableBadges = (): void => {
+  if (!isDiffchartPage()) return
+  ensureUnavailableStyle()
+  const links = document.querySelectorAll<HTMLAnchorElement>('a[href*="/song/"]')
+  for (const link of links) {
+    const songNo = getSongNoFromLink(link)
+    if (songNo === null) continue
+    const existing = link.querySelector(`.${UNAVAILABLE_BADGE_CLASS}`)
+    if (isUnavailableSong(songNo)) {
+      link.classList.add(`${UNAVAILABLE_BADGE_CLASS}-link`)
+      if (existing === null) {
+        const badge = document.createElement('span')
+        badge.className = UNAVAILABLE_BADGE_CLASS
+        badge.textContent = '\u2715'
+        badge.title = 'Unavailable'
+        link.prepend(badge)
+      }
+    } else {
+      link.classList.remove(`${UNAVAILABLE_BADGE_CLASS}-link`)
+      existing?.remove()
+    }
+  }
+}
+
 const insertContextMenu = (playlistsStore: PlaylistsStore, recentScoreStorage: RecentScoreStorage): void => {
   let comp: PlaylistContextMenu
 
@@ -162,6 +213,7 @@ const insertContextMenu = (playlistsStore: PlaylistsStore, recentScoreStorage: R
 
   updatePlaylistOutlines(playlistsStore)
   updateGimmickBadges()
+  updateUnavailableBadges()
 
   document.body.addEventListener('click', removeContextMenu)
 }
@@ -179,6 +231,7 @@ export default async (): Promise<void> => {
     const intervalId = setInterval(() => {
       insertContextMenu(playlistsStore, recentScoreStore)
       updateGimmickBadges()
+      updateUnavailableBadges()
       executionCount++
       if (executionCount >= 5) {
         clearInterval(intervalId)

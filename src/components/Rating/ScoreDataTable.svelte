@@ -2,6 +2,7 @@
   import type { SortedScoreData } from './services/ScoreDataService'
   import { icons } from '../../assets'
   import { isGimmickSong } from '../../lib/gimmickSongs'
+  import { isUnavailableSong } from '../../lib/unavailableSongs'
   import type { Badge, Difficulty } from './ratingTypes'
   import type { DifficultyType, Playlist } from '../../types'
   import { BADGES, MAX_PLAYLIST_SONGS } from '../../constants';
@@ -673,7 +674,7 @@
 
       <tbody>
         {#each displayedScores as score (score.songNo + ':' + score.difficulty)}
-          <tr class:in-playlist={playlistSongSet.has(score.songNo)} class:is-gimmick={isGimmickSong(score.songNo)}>
+          <tr class:in-playlist={playlistSongSet.has(score.songNo)} class:is-gimmick={isGimmickSong(score.songNo)} class:is-unavailable={isUnavailableSong(score.songNo)}>
             <td class="td-icon">
               {#if playlists}
                 <button class="playlist-btn" on:click={(e) => onClickPlaylist(e, score.songNo, score.songName, score.difficulty)}>
@@ -689,7 +690,7 @@
                 target="_blank"
                 rel="noreferrer"
               >
-                {#if isGimmickSong(score.songNo)}<span class="gimmick-badge" title="Gimmick song">✦</span>{/if}({score.songNo}) {score.songName}
+                {#if isGimmickSong(score.songNo)}<span class="gimmick-badge" title="Gimmick song">✦</span>{/if}{#if isUnavailableSong(score.songNo)}<span class="unavailable-badge" title="Unavailable">✕</span>{/if}({score.songNo}) {score.songName}
               </a>
             </td>
 
@@ -861,6 +862,23 @@
 
   .play-count-table tbody tr.in-playlist {
     background-color: #3a3420;
+  }
+
+  .play-count-table tbody tr.is-unavailable {
+    background-color: #3b1010;
+  }
+
+  .play-count-table tbody tr.is-unavailable .song-name a {
+    color: #f87171;
+  }
+
+  .unavailable-badge {
+    color: #f87171;
+    margin-right: 4px;
+    font-size: 1.0em;
+    font-weight: bold;
+    vertical-align: middle;
+    text-shadow: 0 0 6px #f87171, 0 0 12px #dc2626;
   }
 
   .gimmick-badge {
