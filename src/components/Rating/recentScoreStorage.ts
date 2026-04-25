@@ -89,7 +89,16 @@ class RecentScoreStorage {
     for (const [diff, newDiffData] of Object.entries(scoreData.difficulty)) {
       if (!newDiffData) continue
       const oldDiffData = existingSong?.difficulty[diff as keyof typeof existingSong.difficulty]
-      if (oldDiffData === undefined) continue // only track changes, not first-time entries
+      if (oldDiffData === undefined) {
+        // First time seeing this song/difficulty - record timestamp if it already has plays
+        if (newDiffData.count.play > 0) {
+          const key = `${songNo}:${diff}`
+          if (this.playTimestampsMap[key] === undefined) {
+            this.playTimestampsMap[key] = { lastPlayed: now, lastUpscored: null }
+          }
+        }
+        continue
+      }
 
       const key = `${songNo}:${diff}`
       const existing: PlayTimestamp = this.playTimestampsMap[key] ?? { lastPlayed: null, lastUpscored: null }
