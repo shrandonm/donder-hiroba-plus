@@ -17,6 +17,8 @@ const GIMMICK_SONG_NOS: string[] = [
   '1134', // Aleph-0
   '1297', // SAVAGE DELIGHT
   '181', // 80ROCHI
+  '1371', // The Crush
+  
 ]
 
 export const gimmickSongSet = new Set<string>(GIMMICK_SONG_NOS)
