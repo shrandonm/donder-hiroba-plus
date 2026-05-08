@@ -6,6 +6,7 @@
   import type { Badge, Difficulty } from './ratingTypes'
   import type { DifficultyType, Playlist } from '../../types'
   import { BADGES, MAX_PLAYLIST_SONGS } from '../../constants';
+  import { DIFFCHART_10_TIERS, TIER_ORDER, tierRank } from '../../lib/diffchartTiers'
   import { onDestroy, onMount } from 'svelte'
   import PlaylistContextMenu from '../Common/PlaylistContextMenu.svelte'
   import { PlaylistsStore } from '../../lib/playlist'
@@ -121,6 +122,7 @@
     | 'maxbpm'
     | 'lastplayed'
     | 'lastupscored'
+    | 'tier'
     
   let sortKey: SortKey = 'name'
   let sortDir: 'asc' | 'desc' = 'asc'
@@ -141,11 +143,20 @@
     return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' })
   }
 
+  function getSongTier(s: SortedScoreData): string | null {
+    return DIFFCHART_10_TIERS[`${s.songNo}:${s.difficulty}`] ?? null
+  }
+
   function getSortValue(s: SortedScoreData, key: SortKey) {
     switch (key) {
       case 'name': return s.songName
       case 'diff': return s.difficulty === 'oni' ? 0 : 1 // oni first
       case 'level': return getLevelValue(s)
+      case 'tier': {
+        const rank = tierRank(getSongTier(s) ?? '')
+        // not-on-chart songs sort last when ascending
+        return rank < 0 ? TIER_ORDER.length : rank
+      }
       case 'play': return s.score.count.play
       case 'score': return s.score.score
       case 'badge': return badgeToNumber(s.score.badge)
@@ -162,6 +173,13 @@
       case 'lastplayed': return s.lastPlayed ?? 0
       case 'lastupscored': return s.lastUpscored ?? 0
     }
+  }
+
+  // Parse a tier token value into a numeric rank for comparisons
+  function parseTierValue(val: string): number {
+    const upper = val.toUpperCase().replace('SS+', 'SSS') // common typo guard
+    const idx = TIER_ORDER.findIndex(t => t.toUpperCase() === upper)
+    return idx >= 0 ? idx : -1
   }
 
   function getNumericField(s: SortedScoreData, field: string): number {
@@ -276,6 +294,26 @@
       const diff = s.difficulty.toLowerCase()
       const val = rawValue.toLowerCase()
       return op === '=' ? diff === val : diff.includes(val)
+    }
+
+    if (field === 'tier') {
+      const songTier = getSongTier(s)
+      const desired = parseTierValue(rawValue)
+      if (desired < 0) return false
+      if (op === ':' || op === '=') {
+        return songTier !== null && tierRank(songTier) === desired
+      }
+      if (songTier === null) return false
+      const actual = tierRank(songTier)
+      // Lower rank index = harder tier (SSS=0, F=9), so flip operators
+      // tier>A means "harder than A", i.e. actual index < desired index
+      switch (op) {
+        case '>':  return actual < desired
+        case '>=': return actual <= desired
+        case '<':  return actual > desired
+        case '<=': return actual >= desired
+        default:   return true
+      }
     }
 
     if (field === 'badge') {
@@ -635,6 +673,10 @@
             Level{sortIndicator('level')}
           </th>
 
+          <th class="th-sort th-icon" on:click={() => toggleSort('tier')}>
+            Tier{sortIndicator('tier')}
+          </th>
+
           <th class="th-sort th-icon" on:click={() => toggleSort('score')}>
             Score{sortIndicator('score')}
           </th>
@@ -736,6 +778,7 @@
               />
             </td>
             <td>{formatLevel(getLevelValue(score))}</td>
+            <td class="td-tier" data-tier={getSongTier(score) ?? 'none'}>{getSongTier(score) ?? '-'}</td>
             <td>{score.score.score}</td>
             
             <td class="td-icon">
@@ -986,4 +1029,22 @@
     height: 30px;
     vertical-align: middle;
   }
+
+  .td-tier {
+    font-weight: bold;
+    font-size: 0.85em;
+    min-width: 3ch;
+  }
+
+  .td-tier[data-tier="SSS"] { color: #ff4444; }
+  .td-tier[data-tier="SS"]  { color: #ff8c00; }
+  .td-tier[data-tier="S+"]  { color: #ffd700; }
+  .td-tier[data-tier="S"]   { color: #ffe066; }
+  .td-tier[data-tier="A"]   { color: #aef; }
+  .td-tier[data-tier="B"]   { color: #8cf; }
+  .td-tier[data-tier="C"]   { color: #9df; }
+  .td-tier[data-tier="D"]   { color: #aaa; }
+  .td-tier[data-tier="E"]   { color: #888; }
+  .td-tier[data-tier="F"]   { color: #666; }
+  .td-tier[data-tier="X"]   { color: #999; font-style: italic; }
 </style>
