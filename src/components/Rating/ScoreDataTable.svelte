@@ -199,6 +199,18 @@
       case 'minbpm': return analyzer?.getSongMinBpm(s.songNo) ?? 0
       case 'bpm':
       case 'maxbpm': return analyzer?.getSongMaxBpm(s.songNo) ?? 0
+      case 'lastplay':
+      case 'lastplayed': {
+        const ts = s.lastPlayed
+        if (ts === null) return Number.MAX_SAFE_INTEGER
+        return Math.floor((Date.now() - ts) / 86400000)
+      }
+      case 'lastpb':
+      case 'lastupscored': {
+        const ts = s.lastUpscored
+        if (ts === null) return Number.MAX_SAFE_INTEGER
+        return Math.floor((Date.now() - ts) / 86400000)
+      }
       default: return 0
     }
   }
@@ -243,7 +255,9 @@
         String(s.score.count.fullcombo),
         String(s.score.count.donderfullcombo),
         String(analyzer?.getSongDuration(s.songNo, getDifficultyType(s.difficulty)) ?? 0),
-        getBpmRangeText(s)
+        getBpmRangeText(s),
+        daysSince(s.lastPlayed),
+        daysSince(s.lastUpscored)
       ]
       return fields.some((f) => f.toLowerCase().includes(val))
     }
