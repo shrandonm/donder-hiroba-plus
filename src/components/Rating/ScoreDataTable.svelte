@@ -504,17 +504,16 @@
 
   $: levelPlayBuckets = (() => {
     if (!hasOpenedLevelPlayCount) return []
-    const buckets = new Map<number, { plays: number, songs: number, timeSeconds: number, uniqueFC: number, totalFC: number, uniquePurplePlus: number }>()
+    const buckets = new Map<number, { plays: number, songs: number, timeSeconds: number, uniqueFC: number, uniquePurplePlus: number }>()
     for (const s of (filteredScores ?? [])) {
       const level = getLevelValue(s)
       if (!Number.isFinite(level) || level < 6) continue
       const min = Math.floor(level)
-      const bucket = buckets.get(min) ?? { plays: 0, songs: 0, timeSeconds: 0, uniqueFC: 0, totalFC: 0, uniquePurplePlus: 0 }
+      const bucket = buckets.get(min) ?? { plays: 0, songs: 0, timeSeconds: 0, uniqueFC: 0, uniquePurplePlus: 0 }
       const songSeconds = analyzer?.getSongDuration(s.songNo, getDifficultyType(s.difficulty)) ?? 0
       bucket.plays += s.score.count.play
       bucket.songs += 1
       bucket.timeSeconds += (songSeconds * s.score.count.play)
-      bucket.totalFC += s.score.count.fullcombo
       if (s.score.count.fullcombo > 0) bucket.uniqueFC += 1
       if (badgeToNumber(s.score.badge) >= 7) bucket.uniquePurplePlus += 1
       buckets.set(min, bucket)
@@ -528,7 +527,6 @@
         songs: v.songs,
         timeSeconds: v.timeSeconds,
         uniqueFC: v.uniqueFC,
-        totalFC: v.totalFC,
         uniquePurplePlus: v.uniquePurplePlus
       }))
   })()
@@ -640,14 +638,13 @@
             <th>Total Plays</th>
             <th>Time Spent</th>
             <th>FC</th>
-            <th>Total FC</th>
             <th title="Songs with badge Purple or Rainbow">Purple+</th>
           </tr>
         </thead>
         <tbody>
           {#if levelPlayBuckets.length === 0}
             <tr>
-              <td colspan="7">No filtered songs in level range [6, +inf)</td>
+              <td colspan="6">No filtered songs in level range [6, +inf)</td>
             </tr>
           {:else}
             {#each levelPlayBuckets as bucket (bucket.min)}
@@ -657,7 +654,6 @@
                 <td>{bucket.plays}</td>
                 <td>{formatHours(bucket.timeSeconds)}</td>
                 <td>{bucket.uniqueFC} ({bucket.songs > 0 ? (bucket.uniqueFC / bucket.songs * 100).toFixed(1) : 0}%)</td>
-                <td>{bucket.totalFC} ({bucket.plays > 0 ? (bucket.totalFC / bucket.plays * 100).toFixed(1) : 0}%)</td>
                 <td>{bucket.uniquePurplePlus} ({bucket.songs > 0 ? (bucket.uniquePurplePlus / bucket.songs * 100).toFixed(1) : 0}%)</td>
               </tr>
             {/each}
