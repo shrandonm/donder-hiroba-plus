@@ -530,6 +530,33 @@
         uniquePurplePlus: v.uniquePurplePlus
       }))
   })()
+
+  $: lowLevelBucket = (() => {
+    if (!hasOpenedLevelPlayCount) return null
+    const acc = { plays: 0, songs: 0, timeSeconds: 0, uniqueFC: 0, uniquePurplePlus: 0 }
+    for (const s of (filteredScores ?? [])) {
+      const level = getLevelValue(s)
+      if (!Number.isFinite(level) || level < 1 || level >= 6) continue
+      const songSeconds = analyzer?.getSongDuration(s.songNo, getDifficultyType(s.difficulty)) ?? 0
+      acc.plays += s.score.count.play
+      acc.songs += 1
+      acc.timeSeconds += (songSeconds * s.score.count.play)
+      if (s.score.count.fullcombo > 0) acc.uniqueFC += 1
+      if (badgeToNumber(s.score.badge) >= 7) acc.uniquePurplePlus += 1
+    }
+    return acc.songs > 0 ? acc : null
+  })()
+
+  $: levelPlayTotals = [...(lowLevelBucket ? [lowLevelBucket] : []), ...levelPlayBuckets].reduce(
+    (acc, b) => ({
+      songs: acc.songs + b.songs,
+      plays: acc.plays + b.plays,
+      timeSeconds: acc.timeSeconds + b.timeSeconds,
+      uniqueFC: acc.uniqueFC + b.uniqueFC,
+      uniquePurplePlus: acc.uniquePurplePlus + b.uniquePurplePlus
+    }),
+    { songs: 0, plays: 0, timeSeconds: 0, uniqueFC: 0, uniquePurplePlus: 0 }
+  )
 </script>
 
 <div class="score-data-section">
@@ -644,9 +671,19 @@
         <tbody>
           {#if levelPlayBuckets.length === 0}
             <tr>
-              <td colspan="6">No filtered songs in level range [6, +inf)</td>
+              <td colspan="6">No filtered songs in level range [1, +inf)</td>
             </tr>
           {:else}
+            {#if lowLevelBucket}
+              <tr>
+                <td>levels 1–5</td>
+                <td>{lowLevelBucket.songs}</td>
+                <td>{lowLevelBucket.plays}</td>
+                <td>{formatHours(lowLevelBucket.timeSeconds)}</td>
+                <td>{lowLevelBucket.uniqueFC} ({lowLevelBucket.songs > 0 ? (lowLevelBucket.uniqueFC / lowLevelBucket.songs * 100).toFixed(1) : 0}%)</td>
+                <td>{lowLevelBucket.uniquePurplePlus} ({lowLevelBucket.songs > 0 ? (lowLevelBucket.uniquePurplePlus / lowLevelBucket.songs * 100).toFixed(1) : 0}%)</td>
+              </tr>
+            {/if}
             {#each levelPlayBuckets as bucket (bucket.min)}
               <tr>
                 <td>level {bucket.min}</td>
@@ -657,6 +694,14 @@
                 <td>{bucket.uniquePurplePlus} ({bucket.songs > 0 ? (bucket.uniquePurplePlus / bucket.songs * 100).toFixed(1) : 0}%)</td>
               </tr>
             {/each}
+            <tr class="level-play-totals-row">
+              <td><strong>Total</strong></td>
+              <td><strong>{levelPlayTotals.songs}</strong></td>
+              <td><strong>{levelPlayTotals.plays}</strong></td>
+              <td><strong>{formatHours(levelPlayTotals.timeSeconds)}</strong></td>
+              <td><strong>{levelPlayTotals.uniqueFC} ({levelPlayTotals.songs > 0 ? (levelPlayTotals.uniqueFC / levelPlayTotals.songs * 100).toFixed(1) : 0}%)</strong></td>
+              <td><strong>{levelPlayTotals.uniquePurplePlus} ({levelPlayTotals.songs > 0 ? (levelPlayTotals.uniquePurplePlus / levelPlayTotals.songs * 100).toFixed(1) : 0}%)</strong></td>
+            </tr>
           {/if}
         </tbody>
       </table>
@@ -924,6 +969,11 @@
     padding: 4px 8px;
     text-align: center;
     white-space: nowrap;
+  }
+
+  .level-play-totals-row {
+    border-top: 2px solid #888;
+    background-color: #2a2a2a;
   }
   .play-count-table td img {
     width: 20px;
