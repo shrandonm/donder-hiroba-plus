@@ -9,6 +9,7 @@ export function tierRank(tier: string): number {
 }
 
 export const DIFFCHART_10_TIERS: Record<string, string> = {
+  "1470:oni": "SSS",
   "993:ura": "SSS",
   "1227:ura": "SSS",
   "765:ura": "SSS",
@@ -160,6 +161,7 @@ export const DIFFCHART_10_TIERS: Record<string, string> = {
   "781:oni": "A",
   "833:oni": "A",
   "723:oni": "A",
+  "1447:oni": "A",
   "697:oni": "B",
   "698:oni": "B",
   "971:oni": "B",
@@ -271,6 +273,8 @@ export const DIFFCHART_10_TIERS: Record<string, string> = {
   "499:oni": "C",
   "400:ura": "C",
   "399:ura": "C",
+  "1503:oni": "C",
+  "1502:oni": "C",
   "1134:oni": "D",
   "1394:oni": "D",
   "1297:oni": "D",
