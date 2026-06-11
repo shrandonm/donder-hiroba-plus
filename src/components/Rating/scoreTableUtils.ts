@@ -107,3 +107,28 @@ export function cmp(a: number | string, b: number | string): number {
   if (typeof a === 'number' && typeof b === 'number') return a - b
   return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' })
 }
+
+export const DIST_LEVEL_LABELS: { top: string; bottom?: string }[] = [
+  { top: '1–5' },
+  { top: '6' },
+  { top: '7' },
+  { top: '8' },
+  { top: '9' },
+  { top: 'Low 10' },
+  { top: 'Mid 10' },
+  { top: 'High 10' },
+]
+
+/** Returns 0-based bucket index for a song's level + tier, or -1 to exclude. */
+export function getLevelBucket(level: number, tier: string | null): number {
+  if (!Number.isFinite(level) || level < 1) return -1
+  if (level < 6) return 0
+  if (level < 7) return 1
+  if (level < 8) return 2
+  if (level < 9) return 3
+  if (level < 10) return 4
+  // level >= 10: sub-bucket by tier
+  if (!tier || ['F', 'E', 'D', 'X' ].includes(tier)) return 5 
+  if (['C', 'B', 'A', ].includes(tier)) return 6 
+  return 7
+}

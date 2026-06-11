@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { SortedScoreData } from './services/ScoreDataService'
   import type { Analyzer } from '../../lib/analyzer'
+  import { getDanRank, DAN_THRESHOLDS } from './danRank'
+  import type { DanRank } from './danRank'
   import { getDifficultyType, getSongTier, DIST_LEVEL_LABELS, getLevelBucket } from './scoreTableUtils'
 
   export let filteredScores: SortedScoreData[]
@@ -9,56 +11,62 @@
   let open = false
   let hasOpened = false
 
+  const NUM_LEVEL_BUCKETS = DIST_LEVEL_LABELS.length
+
   function getLevelValue(s: SortedScoreData): number {
     if (!analyzer) return 0
     return analyzer.getLevelWidthSub(s.songNo, getDifficultyType(s.difficulty))
+  }
+
+  function danRankColor(rank: DanRank): string {
+    switch (rank) {
+      case 'Shodan':
+      case '2nd Dan':
+      case '3rd Dan':
+      case '4th Dan':   return '#aaa'
+      case '5th Dan':
+      case '6th Dan':
+      case '7th Dan':   return '#8cf'
+      case '8th Dan':
+      case '9th Dan':   return '#aef'
+      case '10th Dan':  return '#ffe066'
+      case 'Kuroto':    return '#ffd700'
+      case 'Meijin':    return '#ff8c00'
+      case 'Chojin':    return '#ff6060'
+      case 'Tatsujin':  return '#ff4444'
+    }
   }
 
   $: graphData = (() => {
     if (!hasOpened) return []
     const _a = analyzer // track analyzer as reactive dependency
 
-    function getSongLevelBucket(s: SortedScoreData): number {
-      return getLevelBucket(getLevelValue(s), getSongTier(s))
-    }
-
-    const criteria: Array<{ label: string; color: string; test: (s: SortedScoreData) => boolean }> = [
-      { label: 'Silver', color: '#c0c0c0', test: s => s.score.badge === 'silver' },
-      { label: 'Gold',   color: '#ffd700', test: s => s.score.badge === 'gold' },
-      { label: 'Pink',   color: '#ffb7c5', test: s => s.score.badge === 'pink' },
-      { label: 'Purple', color: '#b980ff', test: s => s.score.badge === 'purple' },
-      { label: 'Kiwami', color: '#ff6b6b', test: s => s.score.badge === 'rainbow' },
-      { label: 'DFC',          color: '#00cfff', test: s => s.score.count.donderfullcombo > 0 },
-      { label: 'FC',           color: '#ffaa33', test: s => s.score.count.fullcombo > 0 },
-    ]
-
-    const NUM_BUCKETS = 8
     const scores = filteredScores ?? []
 
-    return criteria.map(criterion => {
-      const counts = Array.from({ length: NUM_BUCKETS }, () => 0)
-      const totals = Array.from({ length: NUM_BUCKETS }, () => 0)
+    return DAN_THRESHOLDS.map(threshold => {
+      const counts = Array.from({ length: NUM_LEVEL_BUCKETS }, () => 0)
       for (const s of scores) {
-        const bucket = getSongLevelBucket(s)
+        const result = getDanRank(s.score.good, s.score.ok, s.score.bad)
+        if (!result || result.rank !== threshold.rank) continue
+        const bucket = getLevelBucket(getLevelValue(s), getSongTier(s))
         if (bucket < 0) continue
-        totals[bucket]++
-        if (criterion.test(s)) counts[bucket]++
+        counts[bucket]++
       }
       const maxCount = Math.max(...counts, 1)
-      return { label: criterion.label, color: criterion.color, counts, totals, maxCount }
+      return { label: threshold.rank, color: danRankColor(threshold.rank), counts, maxCount }
     })
   })()
 </script>
 
 <button on:click={() => { open = !open; if (open) hasOpened = true }}>
-  Distribution Graphs (click to expand)
+  Dan Distribution Graphs (click to expand)
 </button>
 
 {#if open}
   <div class="dist-graphs-container">
     {#each graphData as graph}
       <div class="dist-graph">
-        <div class="dist-graph-title">{graph.label}</div>
+        <div class="dist-graph-title" style="color: {graph.color};">{graph.label}</div>
         <div class="dist-chart">
           {#each graph.counts as count, i}
             {@const barHeightPct = Math.round(count / graph.maxCount * 100)}
@@ -103,7 +111,6 @@
     text-align: center;
     margin-bottom: 8px;
     font-size: 0.85em;
-    color: #f0f0f0;
   }
 
   .dist-chart {

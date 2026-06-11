@@ -14,6 +14,7 @@
   import { Analyzer } from '../../lib/analyzer'
   import LevelPlayCount from './LevelPlayCount.svelte'
   import DistributionGraphs from './DistributionGraphs.svelte'
+  import DanDistributionGraphs from './DanDistributionGraphs.svelte'
   import {
     type SortKey,
     badgeToNumber,
@@ -538,6 +539,8 @@
     <LevelPlayCount {filteredScores} {analyzer} />
 
     <DistributionGraphs {filteredScores} {analyzer} />
+
+    <DanDistributionGraphs {filteredScores} {analyzer} />
 
     <div class="table-scroll-wrapper">
     <table class="play-count-table">
