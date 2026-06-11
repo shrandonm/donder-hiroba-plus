@@ -3,15 +3,33 @@
   import { icons } from '../../assets'
   import { isGimmickSong } from '../../lib/gimmickSongs'
   import { isUnavailableSong } from '../../lib/unavailableSongs'
-  import type { Badge, Difficulty } from './ratingTypes'
-  import type { DifficultyType, Playlist } from '../../types'
-  import { BADGES, MAX_PLAYLIST_SONGS } from '../../constants';
-  import { DIFFCHART_10_TIERS, TIER_ORDER, tierRank } from '../../lib/diffchartTiers'
+  import type { Difficulty } from './ratingTypes'
+  import type { Playlist } from '../../types'
+  import { MAX_PLAYLIST_SONGS } from '../../constants';
+  import { TIER_ORDER, tierRank } from '../../lib/diffchartTiers'
   import { getDanRank, DAN_THRESHOLDS } from './danRank'
   import { onDestroy, onMount } from 'svelte'
   import PlaylistContextMenu from '../Common/PlaylistContextMenu.svelte'
   import { PlaylistsStore } from '../../lib/playlist'
   import { Analyzer } from '../../lib/analyzer'
+  import LevelPlayCount from './LevelPlayCount.svelte'
+  import DistributionGraphs from './DistributionGraphs.svelte'
+  import {
+    type SortKey,
+    badgeToNumber,
+    getBadgeName,
+    getTotalNotes,
+    getGoodPercent,
+    getDifficultyType,
+    getSongTier,
+    formatLevel,
+    formatHours,
+    daysSince,
+    normalizeFilterQuery,
+    parseTierValue,
+    songNoNum,
+    cmp,
+  } from './scoreTableUtils'
 
   export let scoreDataSorted: SortedScoreData[]
   export let lastUpdated: string | null
@@ -25,8 +43,6 @@
   let selectedPlaylistSongSet: Set<string> = new Set()
   let selectedPlaylistId = 'all'
   let filterToPlaylistOnly = false
-  let openLevelPlayCount = false
-  let hasOpenedLevelPlayCount = false
   let unsubscribePlaylists: (() => void) | null = null
   let filterQuery = ''
   let hideGimmicks = false
@@ -105,27 +121,6 @@
     unsubscribePlaylists?.()
   })
 
-  type SortKey = 'name'
-    | 'diff'
-    | 'level'
-    | 'play'
-    | 'score'
-    | 'badge'
-    | 'goodpercent'
-    | 'goods'
-    | 'okays'
-    | 'bads'
-    | 'roll'
-    | 'clear'
-    | 'fullcombo'
-    | 'donderfullcombo'
-    | 'songduration'
-    | 'maxbpm'
-    | 'lastplayed'
-    | 'lastupscored'
-    | 'tier'
-    | 'dan'
-    
   let sortKey: SortKey = 'name'
   let sortDir: 'asc' | 'desc' = 'asc'
 
@@ -138,15 +133,6 @@
     sortKey = key
     // sensible defaults: name asc, numbers desc
     sortDir = key === 'name' ? 'asc' : 'desc'
-  }
-
-  function cmp(a: number | string, b: number | string) {
-    if (typeof a === 'number' && typeof b === 'number') return a - b
-    return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' })
-  }
-
-  function getSongTier(s: SortedScoreData): string | null {
-    return DIFFCHART_10_TIERS[`${s.songNo}:${s.difficulty}`] ?? null
   }
 
   function getSortValue(s: SortedScoreData, key: SortKey) {
@@ -182,13 +168,6 @@
       case 'lastplayed': return s.lastPlayed ?? 0
       case 'lastupscored': return s.lastUpscored ?? 0
     }
-  }
-
-  // Parse a tier token value into a numeric rank for comparisons
-  function parseTierValue(val: string): number {
-    const upper = val.toUpperCase().replace('SS+', 'SSS') // common typo guard
-    const idx = TIER_ORDER.findIndex(t => t.toUpperCase() === upper)
-    return idx >= 0 ? idx : -1
   }
 
   function getNumericField(s: SortedScoreData, field: string): number {
@@ -239,19 +218,6 @@
         return Math.floor((Date.now() - ts) / 86400000)
       }
       default: return 0
-    }
-  }
-
-  function getBadgeName(badge: Badge): string {
-    switch (badge) {
-      case 'rainbow': return 'rainbow'
-      case 'purple': return 'purple'
-      case 'pink': return 'pink'
-      case 'gold': return 'gold'
-      case 'silver': return 'silver'
-      case 'bronze': return 'bronze'
-      case 'white': return 'white'
-      case null: return 'none'
     }
   }
 
@@ -401,76 +367,10 @@
     }
   }
   
-  function clamp(n: number, min: number, max: number) {
-    return Math.max(min, Math.min(max, n))
-  }
-  
-  function getTotalNotes(scoreData: SortedScoreData): number
-  {
-    return scoreData.score.good + scoreData.score.ok + scoreData.score.bad
-  }
-  
-  function getGoodPercent(scoreData: SortedScoreData): number
-  {
-    var totalNotes = getTotalNotes(scoreData)
-    return totalNotes > 0 ? scoreData.score.good / totalNotes : 0
-  }
-  
-  function badgeToNumber(badge: Badge): number
-  {
-    switch (badge)
-    {
-        case 'rainbow': return 8
-        case 'purple': return 7
-        case 'pink': return 6
-        case 'gold': return 5
-        case 'silver': return 4
-        case 'bronze': return 3
-        case 'white': return 2
-        case null: return 1
-    }
-  }
-  
   // songNo is a string; normalize for comparisons/tie-breaks
-  function songNoNum(songNo: string): number {
-    const n = Number(songNo)
-    return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY
-  }
-
-  function getDifficultyType(diff: Difficulty): DifficultyType 
-  {
-    return diff === 'ura' ? 'oni_ura' : 'oni'
-  }
-  
   function getLevelValue(scoreData: SortedScoreData): number {
     if (!analyzer) return 0
-    
     return analyzer.getLevelWidthSub(scoreData.songNo, getDifficultyType(scoreData.difficulty))
-  }
-  
-  
-  function formatLevel(level: number): string {
-    if (level <= 0) return '-'
-    const trimmed = Math.round(level * 10) / 10
-    return trimmed % 1 === 0 ? String(Math.trunc(trimmed)) : trimmed.toFixed(1)
-  }
-
-  function normalizeFilterQuery(q: string): string {
-    return q.replace(/([a-z%]+)\s*(>=|<=|=|>|<|:)\s*([^\s"]+)/gi, (_m, field, op, value) => {
-      return `${field}${op}${value}`
-    })
-  }
-
-  function formatHours(totalSeconds: number): string {
-    const hours = Math.max(0, totalSeconds) / 3600
-    return `${hours.toFixed(2)} hours`
-  }
-
-  function daysSince(ts: number | null): string {
-    if (ts === null) return '-'
-    const days = Math.floor((Date.now() - ts) / 86400000)
-    if (days < 1) return '<1d'
-    return `${days}d`
   }
 
   $: filteredScores = (scoreDataSorted ?? []).filter((s) => {
@@ -543,61 +443,6 @@
     return acc + (duration * s.score.count.play)
   }, 0)
 
-  $: levelPlayBuckets = (() => {
-    if (!hasOpenedLevelPlayCount) return []
-    const buckets = new Map<number, { plays: number, songs: number, timeSeconds: number, uniqueFC: number, uniquePurplePlus: number }>()
-    for (const s of (filteredScores ?? [])) {
-      const level = getLevelValue(s)
-      if (!Number.isFinite(level) || level < 6) continue
-      const min = Math.floor(level)
-      const bucket = buckets.get(min) ?? { plays: 0, songs: 0, timeSeconds: 0, uniqueFC: 0, uniquePurplePlus: 0 }
-      const songSeconds = analyzer?.getSongDuration(s.songNo, getDifficultyType(s.difficulty)) ?? 0
-      bucket.plays += s.score.count.play
-      bucket.songs += 1
-      bucket.timeSeconds += (songSeconds * s.score.count.play)
-      if (s.score.count.fullcombo > 0) bucket.uniqueFC += 1
-      if (badgeToNumber(s.score.badge) >= 7) bucket.uniquePurplePlus += 1
-      buckets.set(min, bucket)
-    }
-    return Array.from(buckets.entries())
-      .sort((a, b) => a[0] - b[0])
-      .map(([min, v]) => ({
-        min,
-        max: min + 1,
-        plays: v.plays,
-        songs: v.songs,
-        timeSeconds: v.timeSeconds,
-        uniqueFC: v.uniqueFC,
-        uniquePurplePlus: v.uniquePurplePlus
-      }))
-  })()
-
-  $: lowLevelBucket = (() => {
-    if (!hasOpenedLevelPlayCount) return null
-    const acc = { plays: 0, songs: 0, timeSeconds: 0, uniqueFC: 0, uniquePurplePlus: 0 }
-    for (const s of (filteredScores ?? [])) {
-      const level = getLevelValue(s)
-      if (!Number.isFinite(level) || level < 1 || level >= 6) continue
-      const songSeconds = analyzer?.getSongDuration(s.songNo, getDifficultyType(s.difficulty)) ?? 0
-      acc.plays += s.score.count.play
-      acc.songs += 1
-      acc.timeSeconds += (songSeconds * s.score.count.play)
-      if (s.score.count.fullcombo > 0) acc.uniqueFC += 1
-      if (badgeToNumber(s.score.badge) >= 7) acc.uniquePurplePlus += 1
-    }
-    return acc.songs > 0 ? acc : null
-  })()
-
-  $: levelPlayTotals = [...(lowLevelBucket ? [lowLevelBucket] : []), ...levelPlayBuckets].reduce(
-    (acc, b) => ({
-      songs: acc.songs + b.songs,
-      plays: acc.plays + b.plays,
-      timeSeconds: acc.timeSeconds + b.timeSeconds,
-      uniqueFC: acc.uniqueFC + b.uniqueFC,
-      uniquePurplePlus: acc.uniquePurplePlus + b.uniquePurplePlus
-    }),
-    { songs: 0, plays: 0, timeSeconds: 0, uniqueFC: 0, uniquePurplePlus: 0 }
-  )
 </script>
 
 <div class="score-data-section">
@@ -690,63 +535,9 @@
       </span>
     </div>
 
-    <button on:click={() => {
-      openLevelPlayCount = !openLevelPlayCount
-      if (openLevelPlayCount) hasOpenedLevelPlayCount = true
-    }}>
-      Level Play Counts (click to expand)
-    </button>
+    <LevelPlayCount {filteredScores} {analyzer} />
 
-    {#if openLevelPlayCount}
-      <table class="level-play-table">
-        <thead>
-          <tr>
-            <th>Level Range</th>
-            <th>Song Count</th>
-            <th>Total Plays</th>
-            <th>Time Spent</th>
-            <th>FC</th>
-            <th title="Songs with badge Purple or Rainbow">Purple+</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#if levelPlayBuckets.length === 0}
-            <tr>
-              <td colspan="6">No filtered songs in level range [1, +inf)</td>
-            </tr>
-          {:else}
-            {#if lowLevelBucket}
-              <tr>
-                <td>levels 1–5</td>
-                <td>{lowLevelBucket.songs}</td>
-                <td>{lowLevelBucket.plays}</td>
-                <td>{formatHours(lowLevelBucket.timeSeconds)}</td>
-                <td>{lowLevelBucket.uniqueFC} ({lowLevelBucket.songs > 0 ? (lowLevelBucket.uniqueFC / lowLevelBucket.songs * 100).toFixed(1) : 0}%)</td>
-                <td>{lowLevelBucket.uniquePurplePlus} ({lowLevelBucket.songs > 0 ? (lowLevelBucket.uniquePurplePlus / lowLevelBucket.songs * 100).toFixed(1) : 0}%)</td>
-              </tr>
-            {/if}
-            {#each levelPlayBuckets as bucket (bucket.min)}
-              <tr>
-                <td>level {bucket.min}</td>
-                <td>{bucket.songs}</td>
-                <td>{bucket.plays}</td>
-                <td>{formatHours(bucket.timeSeconds)}</td>
-                <td>{bucket.uniqueFC} ({bucket.songs > 0 ? (bucket.uniqueFC / bucket.songs * 100).toFixed(1) : 0}%)</td>
-                <td>{bucket.uniquePurplePlus} ({bucket.songs > 0 ? (bucket.uniquePurplePlus / bucket.songs * 100).toFixed(1) : 0}%)</td>
-              </tr>
-            {/each}
-            <tr class="level-play-totals-row">
-              <td><strong>Total</strong></td>
-              <td><strong>{levelPlayTotals.songs}</strong></td>
-              <td><strong>{levelPlayTotals.plays}</strong></td>
-              <td><strong>{formatHours(levelPlayTotals.timeSeconds)}</strong></td>
-              <td><strong>{levelPlayTotals.uniqueFC} ({levelPlayTotals.songs > 0 ? (levelPlayTotals.uniqueFC / levelPlayTotals.songs * 100).toFixed(1) : 0}%)</strong></td>
-              <td><strong>{levelPlayTotals.uniquePurplePlus} ({levelPlayTotals.songs > 0 ? (levelPlayTotals.uniquePurplePlus / levelPlayTotals.songs * 100).toFixed(1) : 0}%)</strong></td>
-            </tr>
-          {/if}
-        </tbody>
-      </table>
-    {/if}
+    <DistributionGraphs {filteredScores} {analyzer} />
 
     <div class="table-scroll-wrapper">
     <table class="play-count-table">
@@ -1006,26 +797,6 @@
     color: #f0f0f0;
   }
 
-  .level-play-table {
-    width: 100%;
-    max-width: 360px;
-    border: 1px solid black;
-    border-collapse: collapse;
-    color: #f0f0f0;
-  }
-
-  .level-play-table th,
-  .level-play-table td {
-    border: 1px solid black;
-    padding: 4px 8px;
-    text-align: center;
-    white-space: nowrap;
-  }
-
-  .level-play-totals-row {
-    border-top: 2px solid #888;
-    background-color: #2a2a2a;
-  }
   .play-count-table td img {
     width: 20px;
     height: 20px;
@@ -1200,4 +971,5 @@
     text-decoration-thickness: 2px;
     text-underline-offset: 2px;
   }
+
 </style>
