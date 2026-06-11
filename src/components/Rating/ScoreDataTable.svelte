@@ -7,6 +7,7 @@
   import type { DifficultyType, Playlist } from '../../types'
   import { BADGES, MAX_PLAYLIST_SONGS } from '../../constants';
   import { DIFFCHART_10_TIERS, TIER_ORDER, tierRank } from '../../lib/diffchartTiers'
+  import { getDanRank, DAN_THRESHOLDS } from './danRank'
   import { onDestroy, onMount } from 'svelte'
   import PlaylistContextMenu from '../Common/PlaylistContextMenu.svelte'
   import { PlaylistsStore } from '../../lib/playlist'
@@ -123,6 +124,7 @@
     | 'lastplayed'
     | 'lastupscored'
     | 'tier'
+    | 'dan'
     
   let sortKey: SortKey = 'name'
   let sortDir: 'asc' | 'desc' = 'asc'
@@ -156,6 +158,13 @@
         const rank = tierRank(getSongTier(s) ?? '')
         // not-on-chart songs sort last when ascending
         return rank < 0 ? TIER_ORDER.length : rank
+      }
+      case 'dan': {
+        const result = getDanRank(s.score.good, s.score.ok, s.score.bad)
+        if (!result) return -1
+        const idx = DAN_THRESHOLDS.findIndex(t => t.rank === result.rank)
+        // gold within same rank sorts higher
+        return idx * 2 + (result.gold ? 1 : 0)
       }
       case 'play': return s.score.count.play
       case 'score': return s.score.score
@@ -256,6 +265,7 @@
     const m = token.match(/^([a-z%]+)\s*(>=|<=|=|>|<|:)\s*(.+)$/i)
     if (!m) {
       const val = token.toLowerCase()
+      const danResult = getDanRank(s.score.good, s.score.ok, s.score.bad)
       const fields = [
         s.songName,
         s.songNo,
@@ -275,7 +285,8 @@
         String(analyzer?.getSongDuration(s.songNo, getDifficultyType(s.difficulty)) ?? 0),
         getBpmRangeText(s),
         daysSince(s.lastPlayed),
-        daysSince(s.lastUpscored)
+        daysSince(s.lastUpscored),
+        danResult ? danResult.rank.toLowerCase() : '',
       ]
       return fields.some((f) => f.toLowerCase().includes(val))
     }
@@ -294,6 +305,36 @@
       const diff = s.difficulty.toLowerCase()
       const val = rawValue.toLowerCase()
       return op === '=' ? diff === val : diff.includes(val)
+    }
+
+    if (field === 'dan') {
+      const danResult = getDanRank(s.score.good, s.score.ok, s.score.bad)
+      // dan:gold / dan=gold — gold tier only
+      if (rawValue.toLowerCase() === 'gold') {
+        return (op === ':' || op === '=') ? (danResult?.gold === true) : false
+      }
+      // dan:none — unranked songs
+      if (rawValue.toLowerCase() === 'none') {
+        return (op === ':' || op === '=') ? danResult === null : false
+      }
+      const desiredIdx = DAN_THRESHOLDS.findIndex(
+        t => t.rank.toLowerCase() === rawValue.toLowerCase()
+      )
+      if (desiredIdx < 0) return false
+      if (op === ':' || op === '=') {
+        return danResult !== null
+          && DAN_THRESHOLDS.findIndex(t => t.rank === danResult.rank) === desiredIdx
+      }
+      if (danResult === null) return false
+      const actualIdx = DAN_THRESHOLDS.findIndex(t => t.rank === danResult.rank)
+      // Higher index = higher rank: dan>7th dan means rank above 7th
+      switch (op) {
+        case '>':  return actualIdx > desiredIdx
+        case '>=': return actualIdx >= desiredIdx
+        case '<':  return actualIdx < desiredIdx
+        case '<=': return actualIdx <= desiredIdx
+        default:   return true
+      }
     }
 
     if (field === 'tier') {
@@ -609,7 +650,7 @@
       <input
         id="score-filter-input"
         type="text"
-        placeholder='name, level>=9, score>1000000, good%>=98'
+        placeholder='name, level>=9, score>1000000, good%>=98, dan>=7th dan, dan=gold'
         bind:value={filterQuery}
       />
     </div>
@@ -730,6 +771,10 @@
             Tier{sortIndicator('tier')}
           </th>
 
+          <th class="th-sort th-icon th-dan" on:click={() => toggleSort('dan')}>
+            Dan{sortIndicator('dan')}
+          </th>
+
           <th class="th-sort th-icon" on:click={() => toggleSort('score')}>
             Score{sortIndicator('score')}
           </th>
@@ -802,6 +847,7 @@
 
       <tbody>
         {#each displayedScores as score (score.songNo + ':' + score.difficulty)}
+          {@const danResult = getDanRank(score.score.good, score.score.ok, score.score.bad)}
           <tr class:in-playlist={playlistSongSet.has(score.songNo)} class:is-gimmick={isGimmickSong(score.songNo)} class:is-unavailable={isUnavailableSong(score.songNo)}>
             <td class="td-icon">
               {#if playlists}
@@ -832,6 +878,11 @@
             </td>
             <td>{formatLevel(getLevelValue(score))}</td>
             <td class="td-tier" data-tier={getSongTier(score) ?? 'none'}>{getSongTier(score) ?? '-'}</td>
+            <td class="td-dan" class:td-dan-gold={danResult?.gold === true} data-dan={danResult?.rank ?? 'none'} title={danResult?.goldTooltip ?? ''}>
+              {#if danResult}
+                {#if danResult.gold}<img class="dan-gold-crown" src={icons.crowns.gold} alt="Gold" title="Gold requirements met" />{/if}<span class:dan-gold-text={danResult.gold}>{danResult.rank}</span>
+              {:else}-{/if}
+            </td>
             <td>{score.score.score}</td>
             
             <td class="td-icon">
@@ -1105,4 +1156,48 @@
   .td-tier[data-tier="E"]   { color: #888; }
   .td-tier[data-tier="F"]   { color: #666; }
   .td-tier[data-tier="X"]   { color: #999; font-style: italic; }
+
+  .th-dan {
+    min-width: 6ch;
+  }
+
+  .td-dan {
+    font-weight: bold;
+    font-size: 0.85em;
+    min-width: 6ch;
+  }
+
+  .td-dan[data-dan="Shodan"]   { color: #aaa; }
+  .td-dan[data-dan="2nd Dan"]  { color: #aaa; }
+  .td-dan[data-dan="3rd Dan"]  { color: #aaa; }
+  .td-dan[data-dan="4th Dan"]  { color: #aaa; }
+  .td-dan[data-dan="5th Dan"]  { color: #8cf; }
+  .td-dan[data-dan="6th Dan"]  { color: #8cf; }
+  .td-dan[data-dan="7th Dan"]  { color: #8cf; }
+  .td-dan[data-dan="8th Dan"]  { color: #aef; }
+  .td-dan[data-dan="9th Dan"]  { color: #aef; }
+  .td-dan[data-dan="10th Dan"] { color: #ffe066; }
+  .td-dan[data-dan="Kuroto"]   { color: #ffd700; }
+  .td-dan[data-dan="Meijin"]   { color: #ff8c00; }
+  .td-dan[data-dan="Chojin"]   { color: #ff6060; }
+  .td-dan[data-dan="Tatsujin"] { color: #ff4444; text-shadow: 0 0 6px #ff2222; }
+
+  .td-dan.td-dan-gold {
+    outline: 1px solid rgba(255, 215, 0, 0.4);
+  }
+
+  .dan-gold-crown {
+    width: 14px;
+    height: 14px;
+    vertical-align: middle;
+    margin-right: 3px;
+    margin-bottom: 2px;
+  }
+
+  .dan-gold-text {
+    text-decoration: underline;
+    text-decoration-color: #ffd700;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
 </style>
