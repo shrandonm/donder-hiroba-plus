@@ -15,6 +15,7 @@
   import LevelPlayCount from './LevelPlayCount.svelte'
   import DistributionGraphs from './DistributionGraphs.svelte'
   import DanDistributionGraphs from './DanDistributionGraphs.svelte'
+  import DanSummary from './DanSummary.svelte'
   import {
     type SortKey,
     badgeToNumber,
@@ -444,16 +445,76 @@
     return acc + (duration * s.score.count.play)
   }, 0)
 
+  function exportCSV() {
+    const headers = [
+      'Song No', 'Name', 'Difficulty', 'Level', 'Tier', 'Dan', 'Score', 'Badge',
+      'Good %', 'Goods', 'Okays', 'Bads', 'Rolls',
+      'Plays', 'Last Played', 'Last PB',
+      'Clears', 'Full Combos', 'DFC',
+      'Length (s)', 'BPM',
+    ]
+
+    const rows = displayedScores.map(s => {
+      const danResult = getDanRank(s.score.good, s.score.ok, s.score.bad)
+      const danText = danResult ? (danResult.gold ? `${danResult.rank} (Gold)` : danResult.rank) : ''
+      const duration = analyzer?.getSongDuration(s.songNo, getDifficultyType(s.difficulty)) ?? 0
+      return [
+        s.songNo,
+        s.songName,
+        s.difficulty,
+        formatLevel(getLevelValue(s)),
+        getSongTier(s) ?? '',
+        danText,
+        s.score.score,
+        getBadgeName(s.score.badge),
+        (getGoodPercent(s) * 100).toFixed(2) + '%',
+        s.score.good,
+        s.score.ok,
+        s.score.bad,
+        s.score.roll,
+        s.score.count.play,
+        daysSince(s.lastPlayed),
+        daysSince(s.lastUpscored),
+        s.score.count.clear,
+        s.score.count.fullcombo,
+        s.score.count.donderfullcombo,
+        duration,
+        getBpmRangeText(s),
+      ]
+    })
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(v => {
+        const str = String(v)
+        return str.includes(',') || str.includes('"') || str.includes('\n')
+          ? `"${str.replace(/"/g, '""')}"`
+          : str
+      }).join(','))
+      .join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'scores.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
 </script>
 
 <div class="score-data-section">
-  <div style="margin-top: 50px;">
-    <span>Last Score Updated: <br> {lastUpdated}</span>
-  </div>
+  <div style="margin-top: 50px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+    <span>Last Score Updated: {lastUpdated}</span>
 
-  <button on:click={onClearCache}>
-    Clear Cache
-  </button>
+    <button on:click={onClearCache}>
+      Clear Cache
+    </button>
+
+    <button on:click={exportCSV}>
+      Export CSV
+    </button>
+  </div>
 
   <button on:click={() => { openPlayCount = !openPlayCount }}>
     Play Count (click to expand)
@@ -537,6 +598,8 @@
     </div>
 
     <LevelPlayCount {filteredScores} {analyzer} />
+
+    <DanSummary {filteredScores} />
 
     <DistributionGraphs {filteredScores} {analyzer} />
 

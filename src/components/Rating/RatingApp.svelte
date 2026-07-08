@@ -3,8 +3,10 @@
     import UploadControls from './UploadControls.svelte'
     import ScoreDataTable from './ScoreDataTable.svelte'
     import UploadProgress from './UploadProgress.svelte'
+    import ScoreDeltaView from './ScoreDeltaView.svelte'
     import type { CardData } from 'node-hiroba/types'
     import RecentScoreStorage from './recentScoreStorage'
+    import { ScoreDeltaStorage, type ScoreDelta } from './scoreDeltaStorage'
     import { onMount } from 'svelte'
     import { UploadService } from './services/UploadService'
     import { updateScoreDataSorted, type SortedScoreData } from './services/ScoreDataService'
@@ -16,9 +18,11 @@
     let notlogined = false
 
     let storage: RecentScoreStorage
+    let deltaStorage: ScoreDeltaStorage
     let storageLoaded = false
     let lastUpdated: string | null = null
     let scoreDataSorted: SortedScoreData[] = []
+    let deltas: ScoreDelta[] = []
     let cardData: CardData & { summary?: Summary } | null = null
     let sendType: 'clear' | 'score' | 'all' | 'recent' = 'all'
 
@@ -43,6 +47,10 @@
 
       storage = new RecentScoreStorage(cardData.taikoNumber.toString())
       await storage.loadFromChromeStorage()
+
+      deltaStorage = new ScoreDeltaStorage(cardData.taikoNumber.toString())
+      await deltaStorage.loadFromChromeStorage()
+      deltas = deltaStorage.getDeltas()
 
       storageLoaded = true
       lastUpdated = storage.getLastUpdated()
@@ -80,11 +88,17 @@
           uploadMessage = msg
         }
 
+        const snapshotBefore = deltaStorage.takeSnapshot(storage)
+
         if (sendType === 'clear') {
           await uploadService.sendClearData(storage, cardData, onProgress)
         } else if (sendType === 'all') {
           await uploadService.sendAllData(storage, cardData, onProgress)
         }
+
+        const snapshotAfter = deltaStorage.takeSnapshot(storage)
+        await deltaStorage.recordDelta(snapshotBefore, snapshotAfter)
+        deltas = deltaStorage.getDeltas()
 
         updateScoreData()
         message = 'Upload completed'
@@ -121,6 +135,7 @@
             />
 
             {#if storageLoaded}
+              <ScoreDeltaView {deltas} />
               <ScoreDataTable
                 {scoreDataSorted}
                 {lastUpdated}
