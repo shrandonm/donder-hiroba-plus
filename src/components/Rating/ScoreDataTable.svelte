@@ -16,6 +16,7 @@
   import DistributionGraphs from './DistributionGraphs.svelte'
   import DanDistributionGraphs from './DanDistributionGraphs.svelte'
   import DanSummary from './DanSummary.svelte'
+  import BadgeCrownSummary from './BadgeCrownSummary.svelte'
   import {
     type SortKey,
     badgeToNumber,
@@ -598,6 +599,8 @@
     </div>
 
     <LevelPlayCount {filteredScores} {analyzer} />
+
+    <BadgeCrownSummary {filteredScores} />
 
     <DanSummary {filteredScores} />
 
