@@ -35,6 +35,37 @@
     await settingsStorage.save()
   }
 
+  const exportData = async (): Promise<void> => {
+    const data = await browser.storage.local.get(null)
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `donder-hiroba-plus-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const importData = (): void => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json,application/json'
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      if (file === undefined || file === null) return
+      try {
+        const text = await file.text()
+        const data = JSON.parse(text) as Record<string, unknown>
+        await browser.storage.local.set(data)
+        alert(i18n.t('Import successful. Reloading...'))
+        window.close()
+      } catch {
+        alert(i18n.t('Import failed. Invalid file.'))
+      }
+    }
+    input.click()
+  }
+
   let disableSongDataUpdate = false
   const forceSongDataUpdate = async (): Promise<void> => {
     try {
@@ -106,6 +137,10 @@
       <span style="font-size: 0.8rem;">서열표 색칠, 레이팅 업로드</span>
     </button>
   </a>
+
+  <!-- Export / Import -->
+  <button on:click={exportData}>{i18n.t('Export Data')}</button>
+  <button on:click={importData}>{i18n.t('Import Data')}</button>
 
   <!-- Reset -->
   <button class="warning" on:click={reset}>{i18n.t('Reset')}</button>
