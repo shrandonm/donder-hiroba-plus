@@ -49,6 +49,7 @@
   let unsubscribePlaylists: (() => void) | null = null
   let filterQuery = ''
   let hideGimmicks = false
+  let showDoubles = false
   let showAdvanced = false
   let playlistMenu:
   | { songNo: string; title: string; difficulty: Difficulty; x: number; y: number }
@@ -378,6 +379,7 @@
 
   $: filteredScores = (scoreDataSorted ?? []).filter((s) => {
     const q = normalizeFilterQuery(filterQuery).trim()
+    if (!showDoubles && s.songName.includes('【双打】')) return false
     if (hideGimmicks && isGimmickSong(s.songNo)) return false
     const shouldFilterToPlaylist = filterToPlaylistOnly
       && selectedPlaylistId !== 'all'
@@ -566,6 +568,7 @@
     <div class="options-row">
       <label class="option-toggle"><input type="checkbox" bind:checked={filterToPlaylistOnly} disabled={!playlistItems.length} />Only show playlist songs</label>
       <label class="option-toggle"><input type="checkbox" bind:checked={hideGimmicks} />Hide gimmick songs</label>
+      <label class="option-toggle"><input type="checkbox" bind:checked={showDoubles} />Show Doubles Charts</label>
       <label class="option-toggle"><input type="checkbox" bind:checked={showAdvanced} />Show advanced stats</label>
     </div>
 
