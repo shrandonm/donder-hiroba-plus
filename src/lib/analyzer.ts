@@ -4,6 +4,7 @@ import { SongDB } from './songDB'
 
 export class Analyzer {
   private static instance: Analyzer
+  private static instancePromise: Promise<Analyzer> | null = null
   private static songDB: SongDB
   data: Record<string, Record<DifficultyType, number>> = {}
 
@@ -11,13 +12,16 @@ export class Analyzer {
   }
 
   public static async getInstance (): Promise<Analyzer> {
-    if (Analyzer.instance === undefined) {
-      Analyzer.instance = new Analyzer()
-      Analyzer.songDB = await SongDB.getInstance()
-      await Analyzer.instance.loadSongData()
+    if (!Analyzer.instancePromise) {
+      Analyzer.instancePromise = (async () => {
+        Analyzer.instance = new Analyzer()
+        Analyzer.songDB = await SongDB.getInstance()
+        await Analyzer.instance.loadSongData()
+        return Analyzer.instance
+      })()
     }
 
-    return Analyzer.instance
+    return Analyzer.instancePromise
   }
 
   public async getPlotData (): Promise<number[][]> {

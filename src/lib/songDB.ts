@@ -2,6 +2,7 @@ import type { SongData } from '../types'
 
 export class SongDB {
   private static instance: SongDB
+  private static instancePromise: Promise<SongDB> | null = null
   private readonly songDataMap = new Map<string, SongData>()
 
   localSongDataVersion: number | undefined
@@ -61,12 +62,15 @@ export class SongDB {
   }
 
   public static async getInstance (): Promise<SongDB> {
-    if (SongDB.instance === undefined) {
-      SongDB.instance = new SongDB()
-      await SongDB.instance.loadSongData()
+    if (!SongDB.instancePromise) {
+      SongDB.instancePromise = (async () => {
+        SongDB.instance = new SongDB()
+        await SongDB.instance.loadSongData()
+        return SongDB.instance
+      })()
     }
 
-    return SongDB.instance
+    return SongDB.instancePromise
   }
 
   public async fetchAndStoreSongData (all?: boolean): Promise<void> {
