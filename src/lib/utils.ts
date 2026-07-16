@@ -19,3 +19,21 @@ export const genUUID = (): string => {
 export const isIOS = (): boolean => {
   return /iPad|iPhone|iPod/.test(navigator.userAgent)
 }
+
+export const downloadBlob = async (blob: Blob, filename: string): Promise<void> => {
+  // iOS WebKit doesn't support blob URL downloads (WebKitBlobResource error 1).
+  // Use the Web Share API with a File object instead, which triggers the share sheet.
+  if (isIOS()) {
+    const file = new File([blob], filename, { type: blob.type })
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file] })
+      return
+    }
+  }
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}

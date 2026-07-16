@@ -35,6 +35,7 @@
     songNoNum,
     cmp,
   } from './scoreTableUtils'
+  import { downloadBlob } from '../../lib/utils'
 
   export let scoreDataSorted: SortedScoreData[]
   export let lastUpdated: string | null
@@ -472,7 +473,7 @@
     return acc + (duration * s.score.count.play)
   }, 0)
 
-  function exportCSV() {
+  async function exportCSV() {
     const headers = [
       'Song No', 'Name', 'Difficulty', 'Level', 'Tier', 'DFC Tier', 'Dan', 'Score', 'Badge',
       'Good %', 'Goods', 'Okays', 'Bads', 'Rolls',
@@ -521,12 +522,7 @@
       .join('\n')
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'scores.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+    await downloadBlob(blob, 'scores.csv')
   }
 
 </script>

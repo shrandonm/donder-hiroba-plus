@@ -8,6 +8,7 @@
   import type { ScoreStorage } from '../lib/scores'
   import { SongDB } from '../lib/songDB'
   import browser from 'webextension-polyfill'
+  import { downloadBlob } from '../lib/utils'
 
   export let settingsStorage: SettingsStorage
   export let scoreStorage: ScoreStorage
@@ -38,12 +39,7 @@
   const exportData = async (): Promise<void> => {
     const data = await browser.storage.local.get(null)
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `donder-hiroba-plus-backup-${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    await downloadBlob(blob, `donder-hiroba-plus-backup-${new Date().toISOString().slice(0, 10)}.json`)
   }
 
   const importData = (): void => {
