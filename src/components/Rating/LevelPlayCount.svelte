@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { SortedScoreData } from './services/ScoreDataService'
   import type { Analyzer } from '../../lib/analyzer'
-  import { badgeToNumber, getDifficultyType, formatHours } from './scoreTableUtils'
+  import { badgeToNumber, getDifficultyType, formatHours, getLevelBucket, getSongTier } from './scoreTableUtils'
 
   export let filteredScores: SortedScoreData[]
   export let analyzer: Analyzer | null
@@ -44,6 +44,31 @@
         uniqueFC: v.uniqueFC,
         uniquePurplePlus: v.uniquePurplePlus
       }))
+  })()
+
+  $: level10Buckets = (() => {
+    if (!hasOpened) return [null, null, null]
+    const _a = analyzer // track analyzer as reactive dependency
+    const acc = [
+      { plays: 0, songs: 0, timeSeconds: 0, uniqueDFC: 0, uniqueFC: 0, uniquePurplePlus: 0 },
+      { plays: 0, songs: 0, timeSeconds: 0, uniqueDFC: 0, uniqueFC: 0, uniquePurplePlus: 0 },
+      { plays: 0, songs: 0, timeSeconds: 0, uniqueDFC: 0, uniqueFC: 0, uniquePurplePlus: 0 },
+    ]
+    for (const s of (filteredScores ?? [])) {
+      const level = getLevelValue(s)
+      if (!Number.isFinite(level) || level < 10) continue
+      const bucket = getLevelBucket(level, getSongTier(s))
+      if (bucket < 5 || bucket > 7) continue
+      const b = acc[bucket - 5]
+      const songSeconds = analyzer?.getSongDuration(s.songNo, getDifficultyType(s.difficulty)) ?? 0
+      b.plays += s.score.count.play
+      b.songs += 1
+      b.timeSeconds += songSeconds * s.score.count.play
+      if (s.score.count.donderfullcombo > 0) b.uniqueDFC += 1
+      if (s.score.count.fullcombo > 0) b.uniqueFC += 1
+      if (badgeToNumber(s.score.badge) >= 7) b.uniquePurplePlus += 1
+    }
+    return acc.map(b => b.songs > 0 ? b : null) as (typeof acc[0] | null)[]
   })()
 
   $: lowLevelBucket = (() => {
@@ -122,6 +147,19 @@
             <td>{bucket.uniquePurplePlus} ({bucket.songs > 0 ? (bucket.uniquePurplePlus / bucket.songs * 100).toFixed(1) : 0}%)</td>
           </tr>
         {/each}
+        {#each level10Buckets as sub10, i (i)}
+          {#if sub10}
+            <tr class="level-10-sub-row">
+              <td class="level-10-sub-label">↳ {['Low 10', 'Mid 10', 'High 10'][i]}</td>
+              <td>{sub10.songs}</td>
+              <td>{sub10.plays}</td>
+              <td>{formatHours(sub10.timeSeconds)}</td>
+              <td>{sub10.uniqueDFC} ({sub10.songs > 0 ? (sub10.uniqueDFC / sub10.songs * 100).toFixed(1) : 0}%)</td>
+              <td>{sub10.uniqueFC} ({sub10.songs > 0 ? (sub10.uniqueFC / sub10.songs * 100).toFixed(1) : 0}%)</td>
+              <td>{sub10.uniquePurplePlus} ({sub10.songs > 0 ? (sub10.uniquePurplePlus / sub10.songs * 100).toFixed(1) : 0}%)</td>
+            </tr>
+          {/if}
+        {/each}
         <tr class="level-play-totals-row">
           <td><strong>Total</strong></td>
           <td><strong>{levelPlayTotals.songs}</strong></td>
@@ -156,5 +194,17 @@
   .level-play-totals-row {
     border-top: 2px solid #888;
     background-color: #2a2a2a;
+  }
+
+  .level-10-sub-row {
+    font-size: 0.85em;
+    color: #aaa;
+    background-color: #1c1c1c;
+  }
+
+  .level-10-sub-label {
+    text-align: left;
+    padding-left: 16px;
+    font-style: italic;
   }
 </style>
