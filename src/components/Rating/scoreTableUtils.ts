@@ -1,7 +1,7 @@
 import type { SortedScoreData } from './services/ScoreDataService'
 import type { Badge, Difficulty } from './ratingTypes'
 import type { DifficultyType } from '../../types'
-import { TIER_ORDER, DIFFCHART_10_TIERS } from '../../lib/diffchartTiers'
+import { TIER_ORDER, DIFFCHART_10_TIERS, DFC_TIER_ORDER, DIFFCHART_10_DFC_TIERS, dfcTierRank } from '../../lib/diffchartTiers'
 
 export type SortKey =
   | 'name'
@@ -23,6 +23,7 @@ export type SortKey =
   | 'lastplayed'
   | 'lastupscored'
   | 'tier'
+  | 'dfctier'
   | 'dan'
 
 export function badgeToNumber(badge: Badge): number {
@@ -68,6 +69,10 @@ export function getSongTier(s: SortedScoreData): string | null {
   return DIFFCHART_10_TIERS[`${s.songNo}:${s.difficulty}`] ?? null
 }
 
+export function getSongDfcTier(s: SortedScoreData): string | null {
+  return DIFFCHART_10_DFC_TIERS[`${s.songNo}:${s.difficulty}`] ?? null
+}
+
 export function formatLevel(level: number): string {
   if (level <= 0) return '-'
   const trimmed = Math.round(level * 10) / 10
@@ -98,6 +103,12 @@ export function parseTierValue(val: string): number {
   return idx >= 0 ? idx : -1
 }
 
+export function parseDfcTierValue(val: string): number {
+  const upper = val.toUpperCase()
+  const idx = DFC_TIER_ORDER.findIndex(t => t.toUpperCase() === upper)
+  return idx >= 0 ? idx : -1
+}
+
 export function songNoNum(songNo: string): number {
   const n = Number(songNo)
   return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY
@@ -119,7 +130,7 @@ export const DIST_LEVEL_LABELS: { top: string; bottom?: string }[] = [
   { top: 'High 10' },
 ]
 
-/** Returns 0-based bucket index for a song's level + tier, or -1 to exclude. */
+/** Returns 0-based bucket index for a song's level + clear tier, or -1 to exclude. */
 export function getLevelBucket(level: number, tier: string | null): number {
   if (!Number.isFinite(level) || level < 1) return -1
   if (level < 6) return 0
@@ -130,5 +141,19 @@ export function getLevelBucket(level: number, tier: string | null): number {
   // level >= 10: sub-bucket by tier
   if (!tier || ['F', 'E', 'D', 'X' ].includes(tier)) return 5 
   if (['C', 'B', 'A', ].includes(tier)) return 6 
+  return 7
+}
+
+/** Returns 0-based bucket index for a song's level + DFC tier, or -1 to exclude. */
+export function getDfcLevelBucket(level: number, dfcTier: string | null): number {
+  if (!Number.isFinite(level) || level < 1) return -1
+  if (level < 6) return 0
+  if (level < 7) return 1
+  if (level < 8) return 2
+  if (level < 9) return 3
+  if (level < 10) return 4
+  // level >= 10: sub-bucket by DFC tier
+  if (!dfcTier || ['F', 'E', 'D'].includes(dfcTier)) return 5
+  if (['C', 'B', 'A', 'A+'].includes(dfcTier)) return 6
   return 7
 }

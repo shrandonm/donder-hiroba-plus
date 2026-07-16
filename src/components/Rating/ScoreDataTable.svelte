@@ -6,7 +6,7 @@
   import type { Difficulty } from './ratingTypes'
   import type { Playlist } from '../../types'
   import { MAX_PLAYLIST_SONGS } from '../../constants';
-  import { TIER_ORDER, tierRank } from '../../lib/diffchartTiers'
+  import { TIER_ORDER, tierRank, DFC_TIER_ORDER, dfcTierRank } from '../../lib/diffchartTiers'
   import { getDanRank, DAN_THRESHOLDS } from './danRank'
   import { onDestroy, onMount } from 'svelte'
   import PlaylistContextMenu from '../Common/PlaylistContextMenu.svelte'
@@ -25,11 +25,13 @@
     getGoodPercent,
     getDifficultyType,
     getSongTier,
+    getSongDfcTier,
     formatLevel,
     formatHours,
     daysSince,
     normalizeFilterQuery,
     parseTierValue,
+    parseDfcTierValue,
     songNoNum,
     cmp,
   } from './scoreTableUtils'
@@ -148,6 +150,10 @@
         const rank = tierRank(getSongTier(s) ?? '')
         // not-on-chart songs sort last when ascending
         return rank < 0 ? TIER_ORDER.length : rank
+      }
+      case 'dfctier': {
+        const rank = dfcTierRank(getSongDfcTier(s) ?? '')
+        return rank < 0 ? DFC_TIER_ORDER.length : rank
       }
       case 'dan': {
         const result = getDanRank(s.score.good, s.score.ok, s.score.bad)
@@ -327,6 +333,24 @@
       }
     }
 
+    if (field === 'dfctier') {
+      const songTier = getSongDfcTier(s)
+      const desired = parseDfcTierValue(rawValue)
+      if (desired < 0) return false
+      if (op === ':' || op === '=') {
+        return songTier !== null && dfcTierRank(songTier) === desired
+      }
+      if (songTier === null) return false
+      const actual = dfcTierRank(songTier)
+      switch (op) {
+        case '>':  return actual < desired
+        case '>=': return actual <= desired
+        case '<':  return actual > desired
+        case '<=': return actual >= desired
+        default:   return true
+      }
+    }
+
     if (field === 'badge') {
       const val = rawValue.toLowerCase()
       const badgeMap: Record<string, number> = {
@@ -450,7 +474,7 @@
 
   function exportCSV() {
     const headers = [
-      'Song No', 'Name', 'Difficulty', 'Level', 'Tier', 'Dan', 'Score', 'Badge',
+      'Song No', 'Name', 'Difficulty', 'Level', 'Tier', 'DFC Tier', 'Dan', 'Score', 'Badge',
       'Good %', 'Goods', 'Okays', 'Bads', 'Rolls',
       'Plays', 'Last Played', 'Last PB',
       'Clears', 'Full Combos', 'DFC',
@@ -467,6 +491,7 @@
         s.difficulty,
         formatLevel(getLevelValue(s)),
         getSongTier(s) ?? '',
+        getSongDfcTier(s) ?? '',
         danText,
         s.score.score,
         getBadgeName(s.score.badge),
@@ -634,6 +659,10 @@
             Tier{sortIndicator('tier')}
           </th>
 
+          <th class="th-sort th-icon" on:click={() => toggleSort('dfctier')}>
+            DFC Tier{sortIndicator('dfctier')}
+          </th>
+
           <th class="th-sort th-icon th-dan" on:click={() => toggleSort('dan')}>
             Dan{sortIndicator('dan')}
           </th>
@@ -741,6 +770,7 @@
             </td>
             <td>{formatLevel(getLevelValue(score))}</td>
             <td class="td-tier" data-tier={getSongTier(score) ?? 'none'}>{getSongTier(score) ?? '-'}</td>
+            <td class="td-tier" data-tier={getSongDfcTier(score) ?? 'none'}>{getSongDfcTier(score) ?? '-'}</td>
             <td class="td-dan" class:td-dan-gold={danResult?.gold === true} data-dan={danResult?.rank ?? 'none'} title={danResult?.goldTooltip ?? ''}>
               {#if danResult}
                 {#if danResult.gold}<img class="dan-gold-crown" src={icons.crowns.gold} alt="Gold" title="Gold requirements met" />{/if}<span class:dan-gold-text={danResult.gold}>{danResult.rank}</span>

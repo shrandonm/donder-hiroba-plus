@@ -1,13 +1,15 @@
 <script lang="ts">
   import type { SortedScoreData } from './services/ScoreDataService'
   import type { Analyzer } from '../../lib/analyzer'
-  import { getDifficultyType, getSongTier, DIST_LEVEL_LABELS, getLevelBucket } from './scoreTableUtils'
+  import { getDifficultyType, getSongTier, getSongDfcTier, DIST_LEVEL_LABELS, getLevelBucket, getDfcLevelBucket } from './scoreTableUtils'
 
   export let filteredScores: SortedScoreData[]
   export let analyzer: Analyzer | null
+  export let tierBasis: 'clear' | 'dfc' = 'clear'
 
   let open = false
   let hasOpened = false
+  let useDfcTier = tierBasis === 'dfc'
 
   function getLevelValue(s: SortedScoreData): number {
     if (!analyzer) return 0
@@ -17,9 +19,12 @@
   $: graphData = (() => {
     if (!hasOpened) return []
     const _a = analyzer // track analyzer as reactive dependency
+    const _dfc = useDfcTier // track DFC tier checkbox
 
     function getSongLevelBucket(s: SortedScoreData): number {
-      return getLevelBucket(getLevelValue(s), getSongTier(s))
+      return useDfcTier
+        ? getDfcLevelBucket(getLevelValue(s), getSongDfcTier(s))
+        : getLevelBucket(getLevelValue(s), getSongTier(s))
     }
 
     const criteria: Array<{ label: string; color: string; test: (s: SortedScoreData) => boolean }> = [
@@ -53,8 +58,11 @@
 <button on:click={() => { open = !open; if (open) hasOpened = true }}>
   Distribution Graphs (click to expand)
 </button>
-
 {#if open}
+  <label style="font-size: 0.8em; color: #ccc;">
+    <input type="checkbox" bind:checked={useDfcTier} />
+    Use DFC tier bucketing
+  </label>
   <div class="dist-graphs-container">
     {#each graphData as graph}
       <div class="dist-graph">

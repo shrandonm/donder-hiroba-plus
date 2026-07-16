@@ -3,13 +3,15 @@
   import type { Analyzer } from '../../lib/analyzer'
   import { getDanRank, DAN_THRESHOLDS } from './danRank'
   import type { DanRank } from './danRank'
-  import { getDifficultyType, getSongTier, DIST_LEVEL_LABELS, getLevelBucket } from './scoreTableUtils'
+  import { getDifficultyType, getSongTier, getSongDfcTier, DIST_LEVEL_LABELS, getLevelBucket, getDfcLevelBucket } from './scoreTableUtils'
 
   export let filteredScores: SortedScoreData[]
   export let analyzer: Analyzer | null
+  export let tierBasis: 'clear' | 'dfc' = 'clear'
 
   let open = false
   let hasOpened = false
+  let useDfcTier = tierBasis === 'dfc'
 
   const NUM_LEVEL_BUCKETS = DIST_LEVEL_LABELS.length
 
@@ -40,6 +42,7 @@
   $: graphData = (() => {
     if (!hasOpened) return []
     const _a = analyzer // track analyzer as reactive dependency
+    const _dfc = useDfcTier // track DFC tier checkbox
 
     const scores = filteredScores ?? []
 
@@ -48,7 +51,9 @@
       for (const s of scores) {
         const result = getDanRank(s.score.good, s.score.ok, s.score.bad)
         if (!result || result.rank !== threshold.rank) continue
-        const bucket = getLevelBucket(getLevelValue(s), getSongTier(s))
+        const bucket = useDfcTier
+          ? getDfcLevelBucket(getLevelValue(s), getSongDfcTier(s))
+          : getLevelBucket(getLevelValue(s), getSongTier(s))
         if (bucket < 0) continue
         counts[bucket]++
       }
@@ -61,8 +66,11 @@
 <button on:click={() => { open = !open; if (open) hasOpened = true }}>
   Dan Distribution Graphs (click to expand)
 </button>
-
 {#if open}
+  <label style="font-size: 0.8em; color: #ccc;">
+    <input type="checkbox" bind:checked={useDfcTier} />
+    Use DFC tier bucketing
+  </label>
   <div class="dist-graphs-container">
     {#each graphData as graph}
       <div class="dist-graph">
