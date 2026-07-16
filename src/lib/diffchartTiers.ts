@@ -387,6 +387,7 @@ export const DIFFCHART_10_TIERS: Record<string, string> = {
 }
 
 export const DIFFCHART_10_DFC_TIERS: Record<string, string> = {
+  "1470:oni": "SS",
   "336:oni": "SS",
   "993:ura": "SS",
   "1350:oni": "SS",
@@ -613,6 +614,8 @@ export const DIFFCHART_10_DFC_TIERS: Record<string, string> = {
   "905:oni": "B",
   "1434:oni": "B",
   "365:oni": "B",
+  "1502:oni": "C",
+  "1503:oni": "C",
   "722:oni": "C",
   "595:oni": "C",
   "504:ura": "C",
