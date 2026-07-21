@@ -36,10 +36,13 @@
     cmp,
   } from './scoreTableUtils'
   import { downloadBlob } from '../../lib/utils'
+  import { SongDB } from '../../lib/songDB'
 
   export let scoreDataSorted: SortedScoreData[]
   export let lastUpdated: string | null
   export let onClearCache: () => Promise<void>
+
+  let songDB: SongDB | null = null
 
   let openPlayCount = true
   let playlists: PlaylistsStore | null = null
@@ -54,6 +57,7 @@
   let hideGimmicks = false
   let showDoubles = false
   let showAdvanced = false
+  let displayedScores: SortedScoreData[] = []
   let playlistMenu:
   | { songNo: string; title: string; difficulty: Difficulty; x: number; y: number }
   | null = null
@@ -117,6 +121,7 @@
         playlistItems = items
       })
       analyzer = await Analyzer.getInstance()
+      songDB = await SongDB.getInstance()
     })()
     return () => {
       document.body.removeEventListener('click', handler)
@@ -245,6 +250,7 @@
       const danResult = getDanRank(s.score.good, s.score.ok, s.score.bad)
       const fields = [
         s.songName,
+        getEnglishTitle(s.songNo) ?? '',
         s.songNo,
         s.difficulty,
         formatLevel(getLevelValue(s)),
@@ -396,6 +402,19 @@
     }
   }
   
+  function getEnglishTitle(songNo: string): string | null {
+    const data = songDB?.getSongData(songNo)
+    if (!data) return null
+    return data.titleEn ?? null
+  }
+
+  function getRomajiTitle(songNo: string): string | null {
+    const data = songDB?.getSongData(songNo)
+    if (!data) return null
+    if (data.titleEn) return null // English title takes over; no subtext needed
+    return data.aliasEn ?? null
+  }
+
   // songNo is a string; normalize for comparisons/tie-breaks
   function getLevelValue(scoreData: SortedScoreData): number {
     if (!analyzer) return 0
@@ -415,23 +434,27 @@
     return tokens.every(t => matchFilterToken(s, t.replace(/^"|"$/g, '')))
   })
 
-  $: displayedScores = [...filteredScores].sort((a, b) => {
-    const av = getSortValue(a, sortKey)
-    const bv = getSortValue(b, sortKey)
-    const primary = cmp(av, bv)
+  $: {
+    void analyzer
+    void songDB
+    displayedScores = [...filteredScores].sort((a, b) => {
+      const av = getSortValue(a, sortKey)
+      const bv = getSortValue(b, sortKey)
+      const primary = cmp(av, bv)
 
-    // tie-breaker: songNo numeric if possible, else string compare
-    let tie = primary
-    if (tie === 0) {
-      const an = songNoNum(a.songNo)
-      const bn = songNoNum(b.songNo)
-      tie = (an - bn)
-      if (tie === 0) tie = cmp(a.songNo, b.songNo)
-      if (tie === 0) tie = cmp(a.difficulty, b.difficulty)
-    }
+      // tie-breaker: songNo numeric if possible, else string compare
+      let tie = primary
+      if (tie === 0) {
+        const an = songNoNum(a.songNo)
+        const bn = songNoNum(b.songNo)
+        tie = (an - bn)
+        if (tie === 0) tie = cmp(a.songNo, b.songNo)
+        if (tie === 0) tie = cmp(a.difficulty, b.difficulty)
+      }
 
-    return sortDir === 'asc' ? tie : -tie
-  })
+      return sortDir === 'asc' ? tie : -tie
+    })
+  }
 
   $: playlistSongSet = new Set(
     selectedPlaylistId === 'all'
@@ -475,7 +498,7 @@
 
   async function exportCSV() {
     const headers = [
-      'Song No', 'Name', 'Difficulty', 'Level', 'Tier', 'DFC Tier', 'Dan', 'Score', 'Badge',
+      'Song No', 'Name', 'Name (EN)', 'Difficulty', 'Level', 'Tier', 'DFC Tier', 'Dan', 'Score', 'Badge',
       'Good %', 'Goods', 'Okays', 'Bads', 'Rolls',
       'Plays', 'Last Played', 'Last PB',
       'Clears', 'Full Combos', 'DFC',
@@ -489,6 +512,7 @@
       return [
         s.songNo,
         s.songName,
+        getEnglishTitle(s.songNo) ?? '',
         s.difficulty,
         formatLevel(getLevelValue(s)),
         getSongTier(s) ?? '',
@@ -736,6 +760,8 @@
       <tbody>
         {#each displayedScores as score (score.songNo + ':' + score.difficulty)}
           {@const danResult = getDanRank(score.score.good, score.score.ok, score.score.bad)}
+          {@const enTitle = getEnglishTitle(score.songNo)}
+          {@const romajiTitle = getRomajiTitle(score.songNo)}
           <tr class:in-playlist={playlistSongSet.has(score.songNo)} class:is-gimmick={isGimmickSong(score.songNo)} class:is-unavailable={isUnavailableSong(score.songNo)}>
             <td class="td-icon">
               {#if playlists}
@@ -752,8 +778,11 @@
                 target="_blank"
                 rel="noreferrer"
               >
-                {#if isGimmickSong(score.songNo)}<span class="gimmick-badge" title="Gimmick song">✦</span>{/if}{#if isUnavailableSong(score.songNo)}<span class="unavailable-badge" title="Unavailable">✕</span>{/if}({score.songNo}) {score.songName}
+                {#if isGimmickSong(score.songNo)}<span class="gimmick-badge" title="Gimmick song">✦</span>{/if}{#if isUnavailableSong(score.songNo)}<span class="unavailable-badge" title="Unavailable">✕</span>{/if}({score.songNo}) {enTitle ?? score.songName}
               </a>
+              {#if romajiTitle}
+                <span class="song-name-sub">{romajiTitle}</span>
+              {/if}
             </td>
 
             <td class="td-icon">
@@ -977,6 +1006,15 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     color: inherit;
+  }
+
+  .song-name-sub {
+    display: block;
+    font-size: 0.8em;
+    color: #aaa;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* icon columns shrink-to-content */

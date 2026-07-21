@@ -7,6 +7,9 @@ export const getTranslatedTitle = (songData?: SongData, songScore?: SongScore, l
     if (language === 'ko') {
       return songData?.titleKo ?? songData?.title ?? 'unknown'
     }
+    if (language === 'en') {
+      return songData?.titleEn ?? songData?.aliasEn ?? songData?.title ?? 'unknown'
+    }
     return songData?.title ?? 'unknown'
   } else if (songScore?.title !== undefined) {
     return songScore.title
