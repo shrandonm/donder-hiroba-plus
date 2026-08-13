@@ -61,8 +61,6 @@ export interface ScoreDelta {
   changes: Record<string, DeltaEntry>
 }
 
-const MAX_DELTAS = 20
-
 export class ScoreDeltaStorage {
   private deltas: ScoreDelta[] = []
   private readonly storageKey: string
@@ -174,9 +172,6 @@ export class ScoreDeltaStorage {
     }
 
     this.deltas.push(delta)
-    if (this.deltas.length > MAX_DELTAS) {
-      this.deltas = this.deltas.slice(this.deltas.length - MAX_DELTAS)
-    }
 
     await this.saveToStorage()
     return true
