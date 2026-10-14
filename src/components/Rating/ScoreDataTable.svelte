@@ -13,8 +13,7 @@
   import { PlaylistsStore } from '../../lib/playlist'
   import { Analyzer } from '../../lib/analyzer'
   import LevelPlayCount from './LevelPlayCount.svelte'
-  import DistributionGraphs from './DistributionGraphs.svelte'
-  import DanDistributionGraphs from './DanDistributionGraphs.svelte'
+  import LevelBadgeDistribution from './LevelBadgeDistribution.svelte'
   import DanSummary from './DanSummary.svelte'
   import BadgeCrownSummary from './BadgeCrownSummary.svelte'
   import {
@@ -648,13 +647,11 @@
 
     <LevelPlayCount {filteredScores} {analyzer} />
 
+    <LevelBadgeDistribution {filteredScores} {analyzer} />
+
     <BadgeCrownSummary {filteredScores} />
 
     <DanSummary {filteredScores} />
-
-    <DistributionGraphs {filteredScores} {analyzer} />
-
-    <DanDistributionGraphs {filteredScores} {analyzer} />
 
     <div class="table-scroll-wrapper">
     <table class="play-count-table">
